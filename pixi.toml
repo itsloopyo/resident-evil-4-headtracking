@@ -1,0 +1,63 @@
+[workspace]
+name = "re4-head-tracking"
+version = "0.1.0"
+description = "Head tracking mod for Resident Evil 4 Remake via REFramework"
+license = "MIT"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tasks]
+# Pull cameraunlock-core to its remote tip.
+sync = "git submodule update --remote cameraunlock-core"
+
+# Manual: refresh vendored REFramework nightly. Dev runs this when bumping the
+# bundled version, then commits. CI never refreshes.
+update-deps = "powershell -ExecutionPolicy Bypass -File scripts/update-deps.ps1"
+
+# Setup CMake build (x64)
+setup = { cmd = """
+    powershell -Command "if (-not (Test-Path 'build')) { cmake -B build -G 'Visual Studio 17 2022' -A x64 } else { Write-Host 'Build directory exists, skipping setup' -ForegroundColor Yellow }"
+""" }
+
+# Build debug configuration
+build = { cmd = "cmake --build build --config Debug", depends-on = ["setup"] }
+
+# Build and run the pure-logic unit tests (separate build dir so the plugin
+# build is untouched; uses the default generator/toolchain).
+test = { cmd = """
+    powershell -Command "cmake -B build-tests -DRE4HT_BUILD_TESTS=ON; if ($LASTEXITCODE -ne 0) { exit 1 }; cmake --build build-tests --target re4ht_tests --config Debug; if ($LASTEXITCODE -ne 0) { exit 1 }; ctest --test-dir build-tests -C Debug --output-on-failure"
+""" }
+
+# Build release configuration
+build-release = { cmd = "cmake --build build --config Release", depends-on = ["setup"] }
+
+# Deploy debug build to game directory
+deploy = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Debug", depends-on = ["build"] }
+
+# Deploy release build to game directory
+install = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Release", depends-on = ["build-release"] }
+
+# Detect game installation path
+detect-game = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/detect-game.ps1" }
+
+# Remove HeadTracking mod only (keeps REFramework)
+uninstall = "scripts\\uninstall.cmd"
+
+# Clean build artifacts
+clean = { cmd = """
+    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; Write-Host 'Build artifacts cleaned' -ForegroundColor Green"
+""" }
+
+# Full clean including release output
+clean-all = { cmd = """
+    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; if (Test-Path 'release') { Remove-Item 'release' -Recurse -Force }; Write-Host 'All build artifacts cleaned' -ForegroundColor Green"
+""" }
+
+# Package release ZIP
+package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build-release"] }
+
+# Automated release workflow
+release = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/release.ps1" }
+
+[dependencies]
+# No pixi dependencies - using system CMake and Visual Studio

@@ -1,0 +1,15 @@
+# Auto-detect text files and normalize line endings
+* text=auto eol=lf
+
+# Windows batch files must be CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files
+*.dll binary
+*.exe binary
+*.pdb binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.zip binary

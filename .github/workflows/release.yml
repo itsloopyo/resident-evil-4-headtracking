@@ -1,0 +1,153 @@
+name: Release
+run-name: "Release ${{ github.ref_name }}"
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
+            Write-Host "::error::Tag format invalid. Use semantic versioning: v1.2.3"
+            exit 1
+          }
+          $version = $matches[1]
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Validate version matches manifest.json
+        shell: pwsh
+        run: |
+          $manifest = Get-Content "manifest.json" -Raw | ConvertFrom-Json
+          $manifestVersion = $manifest.version
+          $tagVersion = "${{ steps.version.outputs.version }}"
+
+          Write-Host "manifest.json version: $manifestVersion"
+          Write-Host "Tag version: $tagVersion"
+
+          if ($manifestVersion -ne $tagVersion) {
+            Write-Host "::error::Version mismatch! Tag is v$tagVersion but manifest.json has $manifestVersion"
+            exit 1
+          }
+          Write-Host "Version matches!" -ForegroundColor Green
+
+      - name: Setup Visual Studio environment
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Configure CMake (x64)
+        shell: pwsh
+        run: |
+          Write-Host "Configuring CMake build (x64)..." -ForegroundColor Cyan
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::CMake configuration failed"
+            exit 1
+          }
+
+          Write-Host "CMake configuration succeeded" -ForegroundColor Green
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          Write-Host "Building release..." -ForegroundColor Cyan
+          cmake --build build --config Release
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Build failed"
+            exit 1
+          }
+
+          Write-Host "Build succeeded" -ForegroundColor Green
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          Write-Host "Packaging release..." -ForegroundColor Cyan
+          powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Packaging failed"
+            exit 1
+          }
+
+          Write-Host "Package created" -ForegroundColor Green
+
+      - name: Generate release notes
+        shell: pwsh
+        run: |
+          $artifactPaths = @(
+            "src/",
+            "cameraunlock-core/",
+            "scripts/install.cmd",
+            "scripts/uninstall.cmd"
+          )
+
+          & cameraunlock-core/scripts/generate-release-notes.ps1 `
+            -Version "${{ steps.version.outputs.version }}" `
+            -ArtifactPaths $artifactPaths `
+            -ProjectName "Head Tracking for Resident Evil 4"
+
+      - name: Find release ZIPs
+        id: find_zips
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $installerZip = "release/RE4HeadTracking-v$version-installer.zip"
+          $nexusZip = "release/RE4HeadTracking-v$version-nexus.zip"
+
+          if (-not (Test-Path $installerZip)) {
+            Write-Host "::error::Installer ZIP not found at $installerZip"
+            exit 1
+          }
+          if (-not (Test-Path $nexusZip)) {
+            Write-Host "::error::Nexus ZIP not found at $nexusZip"
+            exit 1
+          }
+
+          echo "installer_zip=$installerZip" >> $env:GITHUB_OUTPUT
+          echo "nexus_zip=$nexusZip" >> $env:GITHUB_OUTPUT
+          Write-Host "Found: $installerZip"
+          Write-Host "Found: $nexusZip"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $installerZip = "${{ steps.find_zips.outputs.installer_zip }}"
+          $nexusZip = "${{ steps.find_zips.outputs.nexus_zip }}"
+
+          Write-Host "Creating GitHub Release for $tag..." -ForegroundColor Cyan
+
+          gh release create $tag `
+            --title "Head Tracking for Resident Evil 4 $tag" `
+            --notes-file "release-notes.txt" `
+            $installerZip `
+            $nexusZip
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to create GitHub release"
+            exit 1
+          }
+
+          Write-Host "Release created successfully!" -ForegroundColor Green
