@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "config.h"
 #include "logger.h"
-#include "numeric_utils.h"
 
 #include <cameraunlock/config/ini_reader.h>
+#include <cameraunlock/protocol/port_utils.h>
 
 #include <algorithm>
 
@@ -73,7 +73,7 @@ bool Config::Load(const char* path) {
 
     int rawPort = reader.ReadInt("Network", "UDPPort", udpPort);
     bool portValid = false;
-    udpPort = NormalizeUdpPort(rawPort, DEFAULT_UDP_PORT, portValid);
+    udpPort = cameraunlock::NormalizeUdpPort(rawPort, DEFAULT_UDP_PORT, portValid);
     if (!portValid) {
         Logger::Instance().Warning("UDP port %d out of range (1024-65535), using default %d",
                                    rawPort, DEFAULT_UDP_PORT);

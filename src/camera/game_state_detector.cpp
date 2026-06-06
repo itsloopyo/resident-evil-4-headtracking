@@ -3,10 +3,11 @@
 #include "core/logger.h"
 
 #include <reframework/API.hpp>
+#include <cameraunlock/reframework/managed_utils.h>
 
 namespace RE4HT {
 
-static const std::vector<void*> g_emptyArgs{};
+namespace ref = cameraunlock::reframework;
 
 static struct {
     bool inGameplay = false;
@@ -23,18 +24,13 @@ static struct {
     reframework::API::Method* getCurrActiveInputLevel = nullptr;
     bool guiMethodsAvailable = false;
 
-    // CharacterManager — null player context = main menu / loading
+    // CharacterManager - null player context = main menu / loading
     reframework::API::Method* getPlayerContextRef = nullptr;
 
     // Transition tracking for auto-recenter
     bool wasInGameplay = false;
     bool pendingRecenter = false;
 } g_state;
-
-static void* InvokePtr(reframework::API::Method* method, void* obj) {
-    auto ret = method->invoke(reinterpret_cast<reframework::API::ManagedObject*>(obj), g_emptyArgs);
-    return ret.ptr;
-}
 
 static void RefreshGameState() {
     uint64_t now = GetTickCount64();
@@ -113,7 +109,7 @@ static void RefreshGameState() {
                 // Null player context = main menu / loading
                 if (g_state.getPlayerContextRef) {
                     auto charMgr = api->get_managed_singleton("chainsaw.CharacterManager");
-                    if (!charMgr || !InvokePtr(g_state.getPlayerContextRef, charMgr)) {
+                    if (!charMgr || !ref::CallMethod(g_state.getPlayerContextRef, charMgr)) {
                         suppress = true;
                         __leave;
                     }
@@ -122,18 +118,17 @@ static void RefreshGameState() {
                 auto guiMgr = api->get_managed_singleton("chainsaw.GuiManager");
                 if (!guiMgr) { suppress = true; __leave; }
 
-                if (g_state.getIsPlayingEvent) {
-                    auto eventRet = g_state.getIsPlayingEvent->invoke(
-                        reinterpret_cast<reframework::API::ManagedObject*>(guiMgr), g_emptyArgs);
-                    if (eventRet.byte != 0) { suppress = true; __leave; }
+                if (g_state.getIsPlayingEvent && ref::CallMethodBool(g_state.getIsPlayingEvent, guiMgr)) {
+                    suppress = true;
+                    __leave;
                 }
 
                 // Non-zero input level = menu / pause / inventory
                 if (g_state.getGuiOpenCloseData && g_state.getCurrActiveInputLevel) {
-                    auto openCloseData = InvokePtr(g_state.getGuiOpenCloseData, guiMgr);
+                    auto openCloseData = ref::CallMethod(g_state.getGuiOpenCloseData, guiMgr);
                     if (openCloseData) {
                         auto levelRet = g_state.getCurrActiveInputLevel->invoke(
-                            reinterpret_cast<reframework::API::ManagedObject*>(openCloseData), g_emptyArgs);
+                            reinterpret_cast<reframework::API::ManagedObject*>(openCloseData), ref::EmptyArgs());
                         if (levelRet.dword > 0) { suppress = true; __leave; }
                     }
                 }
@@ -152,7 +147,7 @@ static void RefreshGameState() {
     // Detect transition from non-gameplay to gameplay for auto-recenter
     if (g_state.inGameplay && !g_state.wasInGameplay) {
         g_state.pendingRecenter = true;
-        Logger::Instance().Info("Game state: entered gameplay — pending recenter");
+        Logger::Instance().Info("Game state: entered gameplay - pending recenter");
     } else if (!g_state.inGameplay && g_state.wasInGameplay) {
         Logger::Instance().Info("Game state: left gameplay");
     }

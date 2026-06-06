@@ -7,8 +7,8 @@
 // RE4HT::ComputeCleanToHeadRotation) so the consolidation can never silently
 // rewire to the wrong implementation.
 //
-// Hand-rolled runner in the same style as numeric_utils_tests.cpp - no extra
-// dependencies.
+// Hand-rolled runner in the same style as cameraunlock-core/cpp/tests - no
+// extra dependencies.
 
 #include "camera/math_types.h"
 

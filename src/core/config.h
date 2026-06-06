@@ -22,7 +22,7 @@ struct Config {
     int reticleToggleKey = DEFAULT_RETICLE_TOGGLE_KEY;
     int yawModeKey = DEFAULT_YAW_MODE_KEY;
 
-    // Position (6DOF) — RE Engine's native head-bob range is narrow, so we scale 2x to match
+    // Position (6DOF) - RE Engine's native head-bob range is narrow, so we scale 2x to match
     // player expectation for lean/peek at default tracker range. Same rationale as RE:Requiem.
     float positionSensitivityX = 2.0f;
     float positionSensitivityY = 2.0f;

@@ -23,10 +23,12 @@ setup = { cmd = """
 build = { cmd = "cmake --build build --config Debug", depends-on = ["setup"] }
 
 # Build and run the pure-logic unit tests (separate build dir so the plugin
-# build is untouched; uses the default generator/toolchain).
-test = { cmd = """
-    powershell -Command "cmake -B build-tests -DRE4HT_BUILD_TESTS=ON; if ($LASTEXITCODE -ne 0) { exit 1 }; cmake --build build-tests --target re4ht_tests --config Debug; if ($LASTEXITCODE -ne 0) { exit 1 }; ctest --test-dir build-tests -C Debug --output-on-failure"
-""" }
+# build is untouched; uses the default generator/toolchain). Split into chained
+# tasks so a configure or build failure stops the run instead of letting ctest
+# execute a stale test binary.
+test-configure = "cmake -B build-tests -DRE4HT_BUILD_TESTS=ON"
+test-build = { cmd = "cmake --build build-tests --target re4ht_math_tests --config Debug", depends-on = ["test-configure"] }
+test = { cmd = "ctest --test-dir build-tests -C Debug --output-on-failure", depends-on = ["test-build"] }
 
 # Build release configuration
 build-release = { cmd = "cmake --build build --config Release", depends-on = ["setup"] }
