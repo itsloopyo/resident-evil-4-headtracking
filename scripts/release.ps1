@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectDir = Split-Path -Parent $scriptDir
-$manifestPath = Join-Path $projectDir "manifest.json"
+$manifestPath = Join-Path $projectDir "launcher-manifest.json"
 $cmakePath = Join-Path $projectDir "CMakeLists.txt"
 $constantsPath = Join-Path $projectDir "src\core\constants.h"
 
@@ -18,16 +18,17 @@ Import-Module (Join-Path $projectDir "cameraunlock-core\powershell\ReleaseWorkfl
 
 function Get-CurrentVersion {
     $json = Get-Content $manifestPath -Raw | ConvertFrom-Json
-    return $json.version
+    return $json.mod_info.version
 }
 
-# manifest.json is the canonical version source. CMakeLists.txt project version
-# and constants.h RE4HT_VERSION (compiled into the DLL) are kept in lockstep so
-# the binary reports the same version users see in the release.
+# launcher-manifest.json is the canonical version source (the file lopari reads
+# at the ZIP root). CMakeLists.txt project version and constants.h RE4HT_VERSION
+# (compiled into the DLL) are kept in lockstep so the binary reports the same
+# version users see in the release.
 function Set-Version {
     param([string]$NewVersion)
     $json = Get-Content $manifestPath -Raw | ConvertFrom-Json
-    $json.version = $NewVersion
+    $json.mod_info.version = $NewVersion
     $json | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -NoNewline
 
     (Get-Content $cmakePath -Raw) -replace 'project\(RE4HeadTracking VERSION \d+\.\d+\.\d+', "project(RE4HeadTracking VERSION $NewVersion" | Set-Content $cmakePath -NoNewline

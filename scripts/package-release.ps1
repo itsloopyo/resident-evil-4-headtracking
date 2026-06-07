@@ -11,9 +11,10 @@ $projectDir = Split-Path -Parent $scriptDir
 
 Import-Module (Join-Path $projectDir "cameraunlock-core\powershell\ReleaseWorkflow.psm1") -Force
 
-# Get version from manifest
-$manifest = Get-Content (Join-Path $projectDir "manifest.json") | ConvertFrom-Json
-$version = $manifest.version
+# Get version from the launcher manifest (the file lopari reads at the ZIP root).
+$manifestPath = Join-Path $projectDir "launcher-manifest.json"
+$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+$version = $manifest.mod_info.version
 
 Write-Host "=== RE4 Head Tracking - Package Release ===" -ForegroundColor Magenta
 Write-Host ""
@@ -84,6 +85,16 @@ foreach ($vendorFile in @("RE4.zip", "LICENSE", "README.md")) {
     Copy-Item $srcPath -Destination $vendorDstDir -Force
     Write-Host "  vendor/reframework/$vendorFile" -ForegroundColor Green
 }
+
+# launcher-manifest.json is the contract lopari reads at the ZIP root. Stamp
+# the real release version into the staged copy so the shipped manifest can
+# never drift from the build. (Not staged into the Nexus ZIP - Nexus users do
+# not use the launcher.)
+$manifest.mod_info.version = $version
+$stagedManifestPath = Join-Path $ghStagingDir "launcher-manifest.json"
+$manifestJson = $manifest | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText($stagedManifestPath, $manifestJson, (New-Object System.Text.UTF8Encoding $false))
+Write-Host "  launcher-manifest.json" -ForegroundColor Green
 
 $docFiles = @("README.md", "LICENSE", "CHANGELOG.md", "THIRD-PARTY-NOTICES.md")
 foreach ($doc in $docFiles) {
