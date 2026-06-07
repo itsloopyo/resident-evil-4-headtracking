@@ -32,6 +32,11 @@ jobs:
 
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          # No conda dependencies (build uses system CMake + VS), so the env is
+          # empty. Skip install/list: newer pixi errors on `list` of an empty
+          # env. pixi itself is still placed on PATH for `pixi run package`.
+          run-install: false
 
       # Build + package through the SAME command a developer runs locally. All
       # build logic lives in the pixi task chain (cmake configure -> build ->
