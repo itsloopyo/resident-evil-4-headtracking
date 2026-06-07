@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
-# Refresh the vendored REFramework nightly to the latest upstream that ships
-# RE4.zip. Vendored zip is the install-time source of truth, so this is a
-# manual bump-and-commit step. CI does not call this.
+# Refresh the vendored REFramework nightly to the latest upstream. The
+# vendored zip is the install-time source of truth, so this is a manual
+# bump-and-commit step. CI does not call this.
 # See ~/.claude/CLAUDE.md "Vendoring Third-Party Dependencies".
 
 Set-StrictMode -Version Latest
@@ -18,16 +18,23 @@ if (-not (Test-Path $module)) {
 }
 Import-Module $module -Force
 
-# REFramework is per-game: each nightly publishes RE9.zip, RE2.zip, RE4.zip ...
-# A given nightly may skip our game; Refresh-VendoredLoader picks the newest
-# release whose asset list matches AssetPattern, so we naturally tolerate gaps.
+# Praydog ships a single universal REFramework.zip (dinput8.dll +
+# reframework_revision.txt) that works across all supported RE Engine games,
+# including RE4. We deliberately vendor the universal asset, NOT the per-game
+# RE4.zip nightly: the per-game zip bundles VR runtime DLLs (openvr_api.dll,
+# openxr_loader.dll) and VR autorun Lua that auto-enable REFramework's VR mod
+# and fight our flat head tracking. The universal package carries neither, so
+# the vendored zip is flatscreen by construction and lopari's manifest-mode
+# deploy (which extracts the archive verbatim, with no strip step) is correct.
+# We pin the on-disk filename to RE4.zip so deploy.ps1, package-release.ps1,
+# install.cmd, and launcher-manifest.json can hardcode it.
 $out = Join-Path $projectDir 'vendor/reframework'
 Refresh-VendoredLoader `
     -Name 'reframework' `
     -OutputDir $out `
     -OutputFileName 'RE4.zip' `
     -Owner 'praydog' -Repo 'REFramework-nightly' `
-    -AssetPattern '^RE4\.zip$' `
+    -AssetPattern '^REFramework\.zip$' `
     -AllowPrerelease `
     -LicenseUrl 'https://raw.githubusercontent.com/praydog/REFramework/master/LICENSE' | Out-Null
 
