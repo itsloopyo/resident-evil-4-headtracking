@@ -76,6 +76,7 @@ static struct {
     reframework::API::Method* guiFindObjectsByType = nullptr;
     reframework::API::Method* transformSetPosition = nullptr;
     reframework::API::Method* transformGetGlobalPosition = nullptr;
+    reframework::API::Method* getProjectionMatrix = nullptr;  // via.Camera.get_ProjectionMatrix
     reframework::API::TypeDefinition* playObjectRuntimeType = nullptr;
     bool resolved = false;
     bool giveUp = false;
@@ -184,68 +185,113 @@ static void EnsureCameraControllerHooked() {
 }
 
 // --- GUI compensation ---
+
+// Pixel focal lengths from the camera's projection matrix (P00 = 1/tan(hFovX/2),
+// P11 = 1/tan(hFovY/2) in NDC), scaled by the half-canvas. Exact - no horizontal-
+// vs-vertical FOV-convention guessing, which is what the get_FOV path got wrong
+// (it produced fx=fy=558 against a 1920x1080 canvas that wants ~994).
+static bool GetFocalLengthsFromProjectionMatrix(float& fx, float& fy) {
+    if (!g_guiCam.getProjectionMatrix) return false;
+    void* cam = g_cachedCamera ? g_cachedCamera : g_cameraResolver.ResolveCamera();
+    if (!cam) return false;
+
+    auto ret = g_guiCam.getProjectionMatrix->invoke(
+        reinterpret_cast<reframework::API::ManagedObject*>(cam), ref::EmptyArgs());
+    if (ret.exception_thrown) return false;
+
+    auto* m = reinterpret_cast<const float*>(ret.bytes.data());
+    return cameraunlock::rendering::FocalLengthsFromProjection(
+        m[0], m[5], kHalfReferenceCanvasWidth, kHalfReferenceCanvasHeight, fx, fy);
+}
+
 static bool GetMarkerProjectionFocalLengths(float& fx, float& fy) {
-    // Reuse the FOV already fetched this frame in OnPreBeginRendering when valid;
-    // avoids re-walking the camera chain per matching marker element.
+    if (GetFocalLengthsFromProjectionMatrix(fx, fy)) {
+        // Square pixels: a divergent P00 (seen at half its true value on a sibling
+        // build, fx ending up half of fy) would under-compensate yaw. fy (vertical)
+        // is the trusted value; enforce fx = fy so a bad matrix can't slip through.
+        fx = fy;
+        return true;
+    }
+
     float fov = g_crosshair.valid ? g_crosshair.fovDegrees
                                   : g_cameraResolver.ResolveFovDegrees(g_cachedCamera);
     return cameraunlock::rendering::FocalLengthsFromVerticalFov(
         fov, kHalfReferenceCanvasWidth, kHalfReferenceCanvasHeight, fx, fy);
 }
 
-static constexpr float kMarkerAssumedDepthMeters = 1.5f;
-
+// Gui_FloatIcon carries the world markers as a single icon stack offset from
+// screen centre, not at it - so a uniform centre-assumed shift makes off-centre
+// markers fly. via.gui get_GlobalPosition is screen-centre-relative (origin =
+// centre), so we read the stack's real screen anchor and reproject it through
+// the clean-to-head rotation: the layer shift glues the anchor's world direction
+// to where it lands in the head-tracked view, correct at any screen offset, and
+// collapses to zero when the head is centred. Translation parallax is left to
+// the engine (the GUI draws with the head position already).
 static void ApplyMarkerCompensation(reframework::API::ManagedObject* guiMo) {
-    if (!guiMo || !g_guiCam.guiFindObjectsByType || !g_guiCam.playObjectRuntimeType
-        || !g_guiCam.transformSetPosition || !g_guiCam.transformGetGlobalPosition) return;
-    if (!g_crosshair.valid || !Mod::Instance().IsEnabled() || !IsInGameplay()) return;
+    if (!guiMo || !g_guiCam.transformSetPosition || !g_guiCam.transformGetGlobalPosition
+        || !g_guiCam.guiFindObjectsByType || !g_guiCam.playObjectRuntimeType) return;
+    if (!g_C_valid || !g_crosshair.valid || !Mod::Instance().IsEnabled() || !IsInGameplay()) return;
 
     float fx = 0.f, fy = 0.f;
     if (!GetMarkerProjectionFocalLengths(fx, fy)) return;
+
+    auto viewRet = ref::InvokeCached(guiMo, g_hotMethods.getView, "get_View", ref::EmptyArgs());
+    if (viewRet.exception_thrown || !viewRet.ptr) return;
+    auto view = reinterpret_cast<reframework::API::ManagedObject*>(viewRet.ptr);
+
+    // Zero the layer so the children report their natural, un-shifted positions.
+    float zero[3] = { 0.f, 0.f, 0.f };
+    void* zeroArgs[1] = { (void*)&zero[0] };
+    g_guiCam.transformSetPosition->invoke(view, std::span<void*>(zeroArgs));
 
     void* findArgs[1] = { (void*)g_guiCam.playObjectRuntimeType };
     auto arrRet = g_guiCam.guiFindObjectsByType->invoke(guiMo, std::span<void*>(findArgs));
     if (arrRet.exception_thrown || !arrRet.ptr) return;
     auto arr = reinterpret_cast<reframework::API::ManagedObject*>(arrRet.ptr);
     auto lenRet = ref::InvokeCached(arr, g_hotMethods.arrGetLength, "get_Length", ref::EmptyArgs());
-    if (lenRet.exception_thrown || lenRet.dword < 2) return;
+    if (lenRet.exception_thrown) return;
+    uint32_t n = lenRet.dword;
 
-    static std::vector<void*> idx1 = { (void*)(uintptr_t)1 };
-    auto elemRet = ref::InvokeCached(arr, g_hotMethods.arrGetValue, "GetValue", idx1);
-    if (elemRet.exception_thrown || !elemRet.ptr) return;
-    auto child1 = reinterpret_cast<reframework::API::ManagedObject*>(elemRet.ptr);
-
-    float zeroPos[3] = { 0.f, 0.f, 0.f };
-    void* zeroArgs[1] = { (void*)&zeroPos[0] };
-    g_guiCam.transformSetPosition->invoke(child1, std::span<void*>(zeroArgs));
-
-    float markerX = 0.f, markerY = 0.f;
-    auto gp = g_guiCam.transformGetGlobalPosition->invoke(child1, ref::EmptyArgs());
-    if (!gp.exception_thrown) {
-        markerX = *reinterpret_cast<float*>(&gp.bytes[0]);
-        markerY = *reinterpret_cast<float*>(&gp.bytes[4]);
+    // First active icon (index 0 is the root container at the origin).
+    float anchorX = 0.f, anchorY = 0.f;
+    bool found = false;
+    for (uint32_t i = 1; i < n && i < 16; i++) {
+        std::vector<void*> ia = { (void*)(uintptr_t)i };
+        auto er = ref::InvokeCached(arr, g_hotMethods.arrGetValue, "GetValue", ia);
+        if (er.exception_thrown || !er.ptr) continue;
+        auto node = reinterpret_cast<reframework::API::ManagedObject*>(er.ptr);
+        auto gp = g_guiCam.transformGetGlobalPosition->invoke(node, ref::EmptyArgs());
+        if (gp.exception_thrown) continue;
+        float gx = *reinterpret_cast<float*>(&gp.bytes[0]);
+        float gy = *reinterpret_cast<float*>(&gp.bytes[4]);
+        if (gx == gx && gy == gy && (gx != 0.f || gy != 0.f)
+            && fabsf(gx) <= 4000.f && fabsf(gy) <= 4000.f) {
+            anchorX = gx; anchorY = gy; found = true; break;
+        }
     }
+    if (!found) return;  // no active marker; layer left zeroed
 
-    // Unproject the marker's native screen position to a clean-camera ray at the
-    // assumed depth, add the head translation expressed in clean-local space, and
-    // reproject through the clean-to-head rotation so the marker stays pinned.
-    float cleanX = (-markerX / fx) * kMarkerAssumedDepthMeters + g_posClean[0];
-    float cleanY = ( markerY / fy) * kMarkerAssumedDepthMeters + g_posClean[1];
-    float cleanZ = kMarkerAssumedDepthMeters + g_posClean[2];
-    if (cleanZ < 0.25f) cleanZ = 0.25f;
+    // get_GlobalPosition is top-left origin, so centre the anchor before
+    // unprojecting and add the centre back after. g_C already carries head roll
+    // (it is R_head * R_clean^T), so reproject with roll = 0 - passing roll again
+    // would double-count it. Round-trips to the anchor when g_C = I (head centred).
+    float tcr = -(anchorX - kHalfReferenceCanvasWidth)  / fx;
+    float tcu =  (anchorY - kHalfReferenceCanvasHeight) / fy;
+    float guiX = 0.f, guiY = 0.f;
+    if (!ProjectCleanRayToHeadGui(g_C, 0.f, tcr, tcu, 1.f, fx, fy, guiX, guiY)) return;
 
-    float projectedX = 0.f, projectedY = 0.f;
-    bool projected = g_C_valid && ProjectCleanRayToHeadGui(
-        g_C, g_crosshair.rollDegrees * DEG_TO_RAD,
-        cleanX, cleanY, cleanZ, fx, fy, projectedX, projectedY);
+    float deltaX = (kHalfReferenceCanvasWidth  + guiX) - anchorX;
+    float deltaY = (kHalfReferenceCanvasHeight + guiY) - anchorY;
 
-    float deltaX = -g_crosshair.tanRight * fx;
-    float deltaY =  g_crosshair.tanUp * fy;
-    if (projected) { deltaX = projectedX - markerX; deltaY = projectedY - markerY; }
+    static cameraunlock::math::SmoothedFloat s_dX, s_dY;
+    constexpr float kSmoothing = static_cast<float>(cameraunlock::math::kBaselineSmoothing);
+    float dt = Mod::Instance().GetLastDeltaTime();
+    deltaX = s_dX.Update(deltaX, kSmoothing, dt);
+    deltaY = s_dY.Update(deltaY, kSmoothing, dt);
 
     float pos[3] = { deltaX, deltaY, 0.f };
     void* setArgs[1] = { (void*)&pos[0] };
-    g_guiCam.transformSetPosition->invoke(child1, std::span<void*>(setArgs));
+    g_guiCam.transformSetPosition->invoke(view, std::span<void*>(setArgs));
 }
 
 static void ApplyCrosshairOffset(reframework::API::ManagedObject* guiMo) {
@@ -353,9 +399,12 @@ static void InitGUICompensationMethods() {
     auto runtimeType = playObjType->get_runtime_type();
     if (runtimeType) g_guiCam.playObjectRuntimeType = reinterpret_cast<reframework::API::TypeDefinition*>(runtimeType);
 
+    auto camType = tdb->find_type("via.Camera");
+    g_guiCam.getProjectionMatrix = camType ? camType->find_method("get_ProjectionMatrix") : nullptr;
+
     bool ready = g_guiCam.guiFindObjectsByType && g_guiCam.transformSetPosition && g_guiCam.playObjectRuntimeType;
     if (!ready) { g_guiCam.giveUp = true; return; }
-    Logger::Instance().Info("GUI compensation methods resolved");
+    Logger::Instance().Info("GUI compensation methods resolved (projMat=%p)", (void*)g_guiCam.getProjectionMatrix);
 }
 
 static bool ReadGuiElementName(void* guiMo, char* out, size_t outSize) {
@@ -386,11 +435,10 @@ bool OnPreGuiDrawElement(void* element, void* context) {
 
     auto mo = reinterpret_cast<reframework::API::ManagedObject*>(element);
 
-    // Gui_ui2010* is RE4's world-anchored marker layer (objective markers, interaction prompts)
-    if (strncmp(goName, "Gui_ui2010", 10) == 0) ApplyMarkerCompensation(mo);
+    // Gui_FloatIcon is RE4's world-anchored floating-marker layer.
+    if (strcmp(goName, "Gui_FloatIcon") == 0) ApplyMarkerCompensation(mo);
 
-    bool isCrosshairCandidate = (strncmp(goName, "Gui_ui20", 8) == 0)
-                             && (strncmp(goName, "Gui_ui2010", 10) != 0);
+    bool isCrosshairCandidate = strncmp(goName, "Gui_ui20", 8) == 0;
     if (isCrosshairCandidate && g_crosshair.valid) ApplyCrosshairOffset(mo);
 
     return true;
