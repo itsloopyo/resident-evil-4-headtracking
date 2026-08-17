@@ -2,7 +2,7 @@
 
 ## REFramework
 
-- **Version:** nightly-01366 (commit `0436e043af6f81a5d3fef49ae27d35e63431e566`)
+- **Version:** nightly-01394 (commit `0436e043af6f81a5d3fef49ae27d35e63431e566`)
 - **License:** MIT
 - **Upstream:** https://github.com/praydog/REFramework
 - **Usage:** Plugin host and SDK for RE Engine games. Provides method hooking, type system access, ImGui overlay, and D3D rendering hooks.
