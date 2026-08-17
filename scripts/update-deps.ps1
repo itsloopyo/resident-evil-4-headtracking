@@ -29,7 +29,7 @@ Import-Module $module -Force
 # We pin the on-disk filename to RE4.zip so deploy.ps1, package-release.ps1,
 # install.cmd, and launcher-manifest.json can hardcode it.
 $out = Join-Path $projectDir 'vendor/reframework'
-Refresh-VendoredLoader `
+Update-VendoredLoader `
     -Name 'reframework' `
     -OutputDir $out `
     -OutputFileName 'RE4.zip' `
