@@ -80,16 +80,14 @@ bool reframework_plugin_initialize(const REFrameworkPluginInitializeParam* param
 
     // Nav-cluster bindings. Suppressed when Ctrl+Shift is held so the chord
     // path (below) is the sole trigger for Ctrl+Shift+<nav> combos.
-    // Recenter and position-toggle mutate render-thread-owned session state, so
-    // the hotkey thread only requests them; the render frame runs them.
+    // Position-toggle mutates render-thread-owned session state, so the hotkey
+    // thread only requests it; the render frame runs it.
     g_hotkeyPoller.SetToggleKey(config.toggleKey, NavGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
-    g_hotkeyPoller.SetRecenterKey(config.recenterKey, NavGuarded([] { RE4HT::Mod::Instance().RequestRecenter(); }));
     g_hotkeyPoller.AddHotkey(config.positionToggleKey, NavGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
     g_hotkeyPoller.AddHotkey(config.reticleToggleKey, NavGuarded([] { RE4HT::Mod::Instance().ToggleReticle(); }));
     g_hotkeyPoller.AddHotkey(config.yawModeKey, NavGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));
 
     // Ctrl+Shift+<letter> chord bindings (CLAUDE.md T/Y/U/G/H/J cluster).
-    g_hotkeyPoller.AddHotkey('T', ChordGuarded([] { RE4HT::Mod::Instance().RequestRecenter(); }));
     g_hotkeyPoller.AddHotkey('Y', ChordGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
     g_hotkeyPoller.AddHotkey('G', ChordGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
     g_hotkeyPoller.AddHotkey('H', ChordGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));

@@ -6,7 +6,5 @@ namespace RE4HT {
 // Refreshes the cached game state internally (rate-limited).
 bool IsInGameplay();
 
-// Returns true once after transitioning from non-gameplay to gameplay (for auto-recenter)
-bool ShouldRecenter();
 
 } // namespace RE4HT

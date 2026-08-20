@@ -27,9 +27,7 @@ static struct {
     // CharacterManager - null player context = main menu / loading
     reframework::API::Method* getPlayerContextRef = nullptr;
 
-    // Transition tracking for auto-recenter
     bool wasInGameplay = false;
-    bool pendingRecenter = false;
 } g_state;
 
 static void RefreshGameState() {
@@ -144,10 +142,8 @@ static void RefreshGameState() {
 
     g_state.inGameplay = newState;
 
-    // Detect transition from non-gameplay to gameplay for auto-recenter
     if (g_state.inGameplay && !g_state.wasInGameplay) {
-        g_state.pendingRecenter = true;
-        Logger::Instance().Info("Game state: entered gameplay - pending recenter");
+        Logger::Instance().Info("Game state: entered gameplay");
     } else if (!g_state.inGameplay && g_state.wasInGameplay) {
         Logger::Instance().Info("Game state: left gameplay");
     }
@@ -157,14 +153,6 @@ static void RefreshGameState() {
 bool IsInGameplay() {
     RefreshGameState();
     return g_state.inGameplay;
-}
-
-bool ShouldRecenter() {
-    if (g_state.pendingRecenter) {
-        g_state.pendingRecenter = false;
-        return true;
-    }
-    return false;
 }
 
 } // namespace RE4HT

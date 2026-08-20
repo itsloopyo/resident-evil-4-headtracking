@@ -27,7 +27,7 @@ set "MOD_VERSION=0.0.0"
 set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=REFramework"
 set "REFRAMEWORK_VENDOR_ZIP_NAME=RE4.zip"
-set "MOD_CONTROLS=Controls:&echo   Home - Recenter head tracking&echo   End  - Toggle head tracking on/off&echo   PgUp - Toggle position tracking&echo   PgDn - Toggle world/camera-local yaw&echo   Ins  - Toggle reticle"
+set "MOD_CONTROLS=Controls:&echo   End  - Toggle head tracking on/off&echo   PgUp - Toggle position tracking&echo   PgDn - Toggle world/camera-local yaw&echo   Ins  - Toggle reticle"
 :: REFRAMEWORK_VENDOR_ZIP_NAME is per-game (RE:Requiem is RE9.zip, RE2 is
 :: RE2.zip, etc). update-deps.ps1 must be configured with the same name so
 :: the refresh writes to the right vendor file.

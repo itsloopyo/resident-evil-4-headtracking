@@ -39,11 +39,10 @@ Write-DeploymentSuccess `
     -ModName "Head Tracking mod" `
     -DeployPath $result.DeployedDllPath `
     -Controls @(
-        "Home      - Recenter head tracking",
         "End       - Toggle head tracking on/off",
         "Page Up   - Toggle position tracking",
         "Page Down - Toggle yaw mode (world / local)",
         "Insert    - Toggle reticle",
         "",
-        "No nav cluster? Chords: Ctrl+Shift+ T=Recenter Y=Toggle G=Position H=Yaw U=Reticle"
+        "No nav cluster? Chords: Ctrl+Shift+ Y=Toggle G=Position H=Yaw U=Reticle"
     )

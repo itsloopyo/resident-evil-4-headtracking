@@ -67,11 +67,11 @@ No special hardware needed; OpenTrack's built-in **neuralnet tracker** uses any 
 2. Select your webcam in the tracker settings
 3. Set output to **UDP over network** (`127.0.0.1:4242`)
 4. Start tracking before launching the game
-5. Recenter in OpenTrack via its hotkey, and press **Home** in-game to recenter the mod as needed
+5. Centre in OpenTrack with its Center hotkey while you are looking straight at the screen. The mod applies what the tracker sends and keeps no centre of its own.
 
 ### Phone App Setup
 
-This mod includes built-in smoothing for network jitter, so you can send directly from your phone on port 4242 without needing OpenTrack on PC.
+This mod smooths remote connections by default (`RemoteSmoothing=0.15`), so you can send directly from your phone on port 4242 without needing OpenTrack on PC.
 
 1. Install an OpenTrack-compatible head tracking app
 2. Configure it to send to your PC's IP on port 4242 (run `ipconfig` to find it)
@@ -85,7 +85,6 @@ Two equivalent binding sets - use whichever your keyboard has:
 
 | Action | Nav-cluster | Chord |
 |--------|-------------|-------|
-| Recenter view | `Home` | `Ctrl+Shift+T` |
 | Toggle head tracking | `End` | `Ctrl+Shift+Y` |
 | Toggle positional tracking | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode (world-space / camera-local) | `Page Down` | `Ctrl+Shift+H` |
@@ -99,22 +98,29 @@ for tenkeyless / laptop keyboards without a nav cluster.
 
 The mod creates a config file at `reframework/plugins/HeadTracking.ini` on first run. Edit it to customize:
 
+A comment has to sit on its own line, above the key. The parser hands the whole
+text after `=` to the value reader. For a `true`/`false` or text setting that
+text is compared as a whole, so a trailing `; note` makes the comparison fail
+and the setting silently keeps its default. Numeric settings survive a trailing
+comment because the number is read off the front of the text, which is why some
+lines below still carry one. Putting every comment on its own line always works.
+
 ```ini
 [Network]
-Port=4242                       ; Must match OpenTrack output port
+UDPPort=4242                    ; Must match OpenTrack output port
 
-[Tracking]
-Enabled=true                    ; Enable/disable head rotation tracking
-YawSensitivity=1.0              ; Horizontal rotation (0.1-3.0)
-PitchSensitivity=1.0            ; Vertical rotation (0.1-3.0)
-RollSensitivity=1.0             ; Head tilt (0.1-3.0)
-InvertYaw=false                 ; Invert horizontal rotation
-InvertPitch=false               ; Invert vertical rotation
-InvertRoll=false                ; Invert head tilt
-Smoothing=0.0                   ; Rotation smoothing (0.0-1.0, baseline 0.15 floor applied)
+[Sensitivity]
+YawMultiplier=1.0               ; Horizontal rotation (0.1-5.0)
+PitchMultiplier=1.0             ; Vertical rotation (0.1-5.0)
+RollMultiplier=1.0              ; Head tilt (0.0-2.0)
+
+[Smoothing]
+LocalSmoothing=0.0              ; Tracker on this machine, loopback (0.0-1.0)
+RemoteSmoothing=0.15            ; Tracker is a remote network device (0.0-1.0)
 
 [Position]
-Enabled=true                    ; Enable/disable 6DOF position tracking
+; Enable/disable 6DOF position tracking
+Enabled=true
 SensitivityX=2.0                ; Lateral sensitivity (0.0-5.0)
 SensitivityY=2.0                ; Vertical sensitivity (0.0-5.0)
 SensitivityZ=2.0                ; Depth sensitivity (0.0-5.0)
@@ -122,30 +128,39 @@ LimitX=0.30                     ; Max lateral offset in meters
 LimitY=0.20                     ; Max vertical offset in meters
 LimitZ=0.40                     ; Max forward offset in meters
 LimitZBack=0.10                 ; Max backward offset (prevents camera clipping)
-Smoothing=0.15                  ; Position smoothing (0.0-1.0)
-InvertX=false                   ; Invert lateral axis
-InvertY=false                   ; Invert vertical axis
-InvertZ=false                   ; Invert depth axis
+; Invert lateral axis
+InvertX=false
+; Invert vertical axis
+InvertY=false
+; Invert depth axis
+InvertZ=false
 
 [Hotkeys]
 ; Virtual key codes (hex)
-RecenterKey=0x24                ; Home - Recenter view
 ToggleKey=0x23                  ; End - Enable/disable
 PositionToggleKey=0x21          ; Page Up - Toggle position
 YawModeKey=0x22                 ; Page Down - Toggle world/camera-local yaw
 ReticleToggleKey=0x2D           ; Insert - Toggle reticle
 
 [Reticle]
-Enabled=true                    ; Show the head tracking reticle overlay
+; Show the head tracking reticle overlay
+Enabled=true
 
 [General]
-AutoEnable=true                 ; Auto-enable tracking on game start
-WorldSpaceYaw=true              ; true = horizon-locked; false = follows camera pitch
+; Auto-enable tracking on game start
+AutoEnable=true
+; true = horizon-locked; false = follows camera pitch
+WorldSpaceYaw=true
 ```
 
 Delete the file to reset to defaults.
 
 ## Troubleshooting
+
+**Sending a log:**
+- REFramework writes one log per game launch at `<game>/re2_framework_log.txt`. That generic name is used for every RE Engine title, so it is the right file for this game too. If the game folder is not writable it lands in `%APPDATA%\REFramework\<exe name>\` instead.
+- The file is truncated on every launch, so it only ever holds the current session. Attach it as-is to a bug report.
+- This mod's lines are prefixed `[RE4HT]`. The startup sequence to look for is: `Plugin loaded`, `Config loaded from ...`, `UDP receiver started on port ...`, `Initialization complete`, then `First tracker pose received: ...` once the tracker sends anything.
 
 **Mod not loading:**
 - Ensure REFramework is installed (`dinput8.dll` in game root)
@@ -155,11 +170,14 @@ Delete the file to reset to defaults.
 **No tracking response:**
 - Verify OpenTrack is running and outputting data
 - Check UDP port matches (default 4242)
-- Press **End** to enable tracking, **Home** to recenter
+- Press **End** to enable tracking
 - Check firewall isn't blocking UDP port 4242
 
+**View is off-centre:**
+- Centre in your tracker app: OpenTrack's Center bind, the CENTER button in a phone app, or SteamVR's own centring. The mod has no centre of its own, so the tracker is the only place to set one.
+
 **Jitter:**
-- Increase position smoothing in HeadTracking.ini
+- Increase `RemoteSmoothing` (phone or other network tracker) or `LocalSmoothing` (tracker on this PC) in the `[Smoothing]` section of HeadTracking.ini
 - If using a phone app over WiFi, some jitter is expected - the built-in interpolation helps
 
 **Wrong rotation axis:**

@@ -8,8 +8,14 @@ namespace RE4HT {
 
 using cameraunlock::TrackingMode;
 
-// Skip noisy initial frames before auto-recentering (~0.5s at 60fps)
-constexpr int STABILIZATION_FRAME_COUNT = 30;
+// The session re-reads the receiver's connection locality every Update() and
+// selects LocalSmoothing or RemoteSmoothing from it, but that wiring is
+// SFINAE-gated on the receiver exposing IsRemoteConnection(). A receiver
+// adapter that failed to forward the method would still compile and would
+// silently pin every connection to LocalSmoothing forever.
+static_assert(cameraunlock::HeadTrackingSession<cameraunlock::UdpReceiver>::kHasRemoteConnection,
+              "receiver must expose IsRemoteConnection() or remote smoothing never applies");
+
 // Seed frame time (~60fps) used before two timestamps exist, plus the clamp band
 // that stops a stall or debugger pause from injecting a huge dt into smoothing.
 constexpr float DEFAULT_FRAME_TIME_S = 0.016f;
@@ -42,19 +48,45 @@ bool Mod::Initialize() {
     Logger::Instance().Info("Sensitivity: yaw=%.2f pitch=%.2f roll=%.2f",
                             sensitivity.yaw, sensitivity.pitch, sensitivity.roll);
 
+    Logger::Instance().Info("Smoothing: local=%.2f remote=%.2f",
+                            m_config.localSmoothing, m_config.remoteSmoothing);
+
     m_session.SetMode(m_config.positionEnabled ? TrackingMode::RotationAndPosition
                                                : TrackingMode::RotationOnly);
-    m_session.SetStabilizationFrames(STABILIZATION_FRAME_COUNT);
     m_reticleEnabled.store(m_config.reticleEnabled, std::memory_order_relaxed);
     m_worldSpaceYaw.store(m_config.worldSpaceYaw, std::memory_order_relaxed);
 
-    cameraunlock::PositionSettings posSettings(
-        m_config.positionSensitivityX, m_config.positionSensitivityY, m_config.positionSensitivityZ,
-        m_config.positionLimitX, m_config.positionLimitY, m_config.positionLimitZ, m_config.positionLimitZBack,
-        m_config.positionSmoothing,
-        m_config.positionInvertX, m_config.positionInvertY, m_config.positionInvertZ
-    );
+    // Assigned by name rather than through the positional constructor.
+    // PositionSettings takes nine floats before its three inversion bools, so a
+    // positional call that gains or loses one argument silently rebinds a bool
+    // to a float parameter - an invert flag would land in a smoothing slot - and
+    // still compiles clean. Naming every field removes that failure mode.
+    cameraunlock::PositionSettings posSettings;
+    posSettings.sensitivity_x = m_config.positionSensitivityX;
+    posSettings.sensitivity_y = m_config.positionSensitivityY;
+    posSettings.sensitivity_z = m_config.positionSensitivityZ;
+    posSettings.limit_x = m_config.positionLimitX;
+    posSettings.limit_y = m_config.positionLimitY;
+    // Asymmetric Z: negative z is the forward lean, so the generous limit_z is
+    // the forward range and limit_z_back restricts leaning back into the player.
+    posSettings.limit_z = m_config.positionLimitZ;
+    posSettings.limit_z_back = m_config.positionLimitZBack;
+    // Position smoothing lives on the settings; the processor picks between the
+    // two per connection from the flag the session feeds it.
+    posSettings.local_smoothing = m_config.localSmoothing;
+    posSettings.remote_smoothing = m_config.remoteSmoothing;
+    posSettings.invert_x = m_config.positionInvertX;
+    posSettings.invert_y = m_config.positionInvertY;
+    posSettings.invert_z = m_config.positionInvertZ;
     m_session.GetPositionProcessor().SetSettings(posSettings);
+
+    // Rotation smoothing. The session setter also re-writes the two values into
+    // the position settings above, so it has to run after SetSettings; the
+    // values are identical either way, which keeps rotation and position from
+    // ever drifting apart.
+    m_session.SetLocalSmoothing(m_config.localSmoothing);
+    m_session.SetRemoteSmoothing(m_config.remoteSmoothing);
+
     // The previous per-mod pipeline never engaged tracker pivot compensation
     // (it passed radians to a degrees API, zeroing the artifact). Keep that
     // tuning until pivot compensation is verified in game.
@@ -120,6 +152,7 @@ bool Mod::LoadConfig() {
     if (!m_config.Load(configPath.c_str())) {
         m_config.SetDefaults();
         m_config.Save(configPath.c_str());
+        Logger::Instance().Warning("Config not found at %s - defaults written there", configPath.c_str());
         return false;
     }
     return true;
@@ -136,12 +169,6 @@ void Mod::Toggle() {
     SetEnabled(!m_enabled.load());
 }
 
-void Mod::Recenter() {
-    m_session.Recenter();
-    m_lastFrameTickTime = 0;
-    Logger::Instance().Info("View recentered");
-}
-
 void Mod::ToggleReticle() {
     bool enabled = !m_reticleEnabled.load(std::memory_order_relaxed);
     m_reticleEnabled.store(enabled, std::memory_order_relaxed);
@@ -156,7 +183,6 @@ void Mod::TogglePosition() {
 
 void Mod::ProcessDeferredActions() {
     if (!m_initialized.load()) return;
-    if (m_recenterRequested.Consume()) Recenter();
     if (m_togglePositionRequested.Consume()) TogglePosition();
 }
 
@@ -173,7 +199,20 @@ void Mod::TickFrame() {
     m_lastFrameTickTime = now;
     m_lastDeltaTime = deltaTime;
 
-    m_session.Update(deltaTime);
+    if (!m_session.Update(deltaTime)) return;
+}
+
+void Mod::LogFirstTrackerPose() {
+    if (!m_initialized.load()) return;
+    if (m_loggedFirstPose) return;
+
+    float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
+    if (!m_udpReceiver.GetRotation(yaw, pitch, roll)) return;
+
+    m_loggedFirstPose = true;
+    Logger::Instance().Info("First tracker pose received: yaw=%.2f pitch=%.2f roll=%.2f (%s connection)",
+                            yaw, pitch, roll,
+                            m_udpReceiver.IsRemoteConnection() ? "remote" : "local");
 }
 
 bool Mod::GetProcessedRotation(float& yaw, float& pitch, float& roll) {

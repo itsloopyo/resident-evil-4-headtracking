@@ -15,9 +15,14 @@ struct Config {
     float pitchMultiplier = 1.0f;
     float rollMultiplier = 1.0f;
 
+    // Smoothing. Selected per connection from the packet source address: a
+    // tracker on this machine (loopback) uses localSmoothing, a remote network
+    // device uses remoteSmoothing. Both cover rotation and position.
+    float localSmoothing = 0.0f;
+    float remoteSmoothing = 0.15f;
+
     // Hotkeys (Virtual Key codes)
     int toggleKey = DEFAULT_TOGGLE_KEY;
-    int recenterKey = DEFAULT_RECENTER_KEY;
     int positionToggleKey = DEFAULT_POSITION_TOGGLE_KEY;
     int reticleToggleKey = DEFAULT_RETICLE_TOGGLE_KEY;
     int yawModeKey = DEFAULT_YAW_MODE_KEY;
@@ -31,7 +36,6 @@ struct Config {
     float positionLimitY = 0.20f;
     float positionLimitZ = 0.40f;
     float positionLimitZBack = 0.10f;
-    float positionSmoothing = 0.15f;
     bool positionInvertX = false;
     bool positionInvertY = false;
     bool positionInvertZ = false;
