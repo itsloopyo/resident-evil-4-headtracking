@@ -96,13 +96,16 @@ $manifestJson = $manifest | ConvertTo-Json -Depth 10
 [System.IO.File]::WriteAllText($stagedManifestPath, $manifestJson, (New-Object System.Text.UTF8Encoding $false))
 Write-Host "  launcher-manifest.json" -ForegroundColor Green
 
+# A skipped licence copy turns a compliance failure into a green build, so a
+# missing notice file fails the package instead of shipping without it.
 $docFiles = @("README.md", "LICENSE", "CHANGELOG.md", "THIRD-PARTY-NOTICES.md")
 foreach ($doc in $docFiles) {
     $docPath = Join-Path $projectDir $doc
-    if (Test-Path $docPath) {
-        Copy-Item $docPath -Destination $ghStagingDir -Force
-        Write-Host "  $doc" -ForegroundColor Green
+    if (-not (Test-Path $docPath)) {
+        throw "Required notice file not found: $doc. Every published ZIP is a binary distribution and must carry it."
     }
+    Copy-Item $docPath -Destination $ghStagingDir -Force
+    Write-Host "  $doc" -ForegroundColor Green
 }
 
 Copy-SharedBundle -StagingDir $ghStagingDir
@@ -149,6 +152,17 @@ if (Test-Path $nexusZipPath) { Remove-Item $nexusZipPath -Force }
 Write-Host ""
 Write-Host "Creating Nexus ZIP..." -ForegroundColor Cyan
 
+# The Nexus ZIP is a binary distribution too: the licences of everything
+# compiled into or bundled with the payload require their notices to travel
+# with it, so LICENSE and THIRD-PARTY-NOTICES.md ship at its root.
+foreach ($noticeDoc in @('LICENSE', 'THIRD-PARTY-NOTICES.md', 'README.md')) {
+    $noticeSrc = Join-Path $projectDir $noticeDoc
+    if (-not (Test-Path $noticeSrc)) {
+        throw "Required notice file not found: $noticeDoc. Every published ZIP is a binary distribution and must carry it."
+    }
+    Copy-Item $noticeSrc -Destination $nexusStagingDir -Force
+    Write-Host "  $noticeDoc" -ForegroundColor Green
+}
 Push-Location $nexusStagingDir
 try {
     Compress-Archive -Path ".\*" -DestinationPath $nexusZipPath -Force

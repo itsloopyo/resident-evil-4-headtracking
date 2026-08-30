@@ -1,19 +1,21 @@
 // Characterization tests for the matrix/quaternion primitives this plugin
-// consumes through src/camera/math_types.h.
+// consumes from cameraunlock-core's header-only re_math.h.
 //
-// math_types.h was de-duplicated to re-export cameraunlock-core's header-only
-// re_math.h instead of carrying a second copy. These tests lock the observable
-// behaviour of the symbols the plugin actually uses (RE4HT::MatrixToQuat and
-// RE4HT::ComputeCleanToHeadRotation) so the consolidation can never silently
-// rewire to the wrong implementation.
+// The plugin no longer carries a local copy, nor a using-alias shim over the
+// core header. These tests lock the observable behaviour of the two symbols the
+// GUI compensation depends on - MatrixToQuat and ComputeCleanToHeadRotation -
+// so a change to the shared math shows up here rather than as drifted markers
+// in game.
 //
 // Hand-rolled runner in the same style as cameraunlock-core/cpp/tests - no
 // extra dependencies.
 
-#include "camera/math_types.h"
+#include <cameraunlock/reframework/re_math.h>
 
 #include <cmath>
 #include <iostream>
+
+namespace ref = cameraunlock::reframework;
 
 namespace {
 
@@ -32,8 +34,8 @@ bool ApproxEq(float a, float b, float eps = 1e-5f) {
     return std::fabs(a - b) <= eps;
 }
 
-RE4HT::Matrix4x4f Identity() {
-    RE4HT::Matrix4x4f m{};
+ref::Matrix4x4f Identity() {
+    ref::Matrix4x4f m{};
     m.m[0][0] = m.m[1][1] = m.m[2][2] = m.m[3][3] = 1.0f;
     return m;
 }
@@ -41,15 +43,15 @@ RE4HT::Matrix4x4f Identity() {
 void TestMatrixToQuat() {
     std::cout << "MatrixToQuat:\n";
 
-    RE4HT::REQuat q = RE4HT::MatrixToQuat(Identity());
+    ref::REQuat q = ref::MatrixToQuat(Identity());
     Check(ApproxEq(q.x, 0.f) && ApproxEq(q.y, 0.f) && ApproxEq(q.z, 0.f) && ApproxEq(q.w, 1.f),
           "identity matrix -> identity quaternion (0,0,0,1)");
 
     // 90 deg rotation about the Z axis (RE Engine stores basis axes in rows).
-    RE4HT::Matrix4x4f rz = Identity();
+    ref::Matrix4x4f rz = Identity();
     rz.m[0][0] = 0.f; rz.m[0][1] = 1.f;
     rz.m[1][0] = -1.f; rz.m[1][1] = 0.f;
-    RE4HT::REQuat qz = RE4HT::MatrixToQuat(rz);
+    ref::REQuat qz = ref::MatrixToQuat(rz);
     const float kHalfSqrt2 = 0.70710678f;
     Check(ApproxEq(qz.x, 0.f) && ApproxEq(qz.y, 0.f) &&
           ApproxEq(std::fabs(qz.z), kHalfSqrt2) && ApproxEq(std::fabs(qz.w), kHalfSqrt2),
@@ -59,9 +61,9 @@ void TestMatrixToQuat() {
 void TestComputeCleanToHeadRotation() {
     std::cout << "ComputeCleanToHeadRotation:\n";
 
-    RE4HT::Matrix4x4f I = Identity();
+    ref::Matrix4x4f I = Identity();
     float c[3][3] = {};
-    RE4HT::ComputeCleanToHeadRotation(I, I, c);
+    ref::ComputeCleanToHeadRotation(I, I, c);
     bool isIdentity =
         ApproxEq(c[0][0], 1.f) && ApproxEq(c[1][1], 1.f) && ApproxEq(c[2][2], 1.f) &&
         ApproxEq(c[0][1], 0.f) && ApproxEq(c[0][2], 0.f) &&
@@ -71,11 +73,11 @@ void TestComputeCleanToHeadRotation() {
 
     // head row i . clean row j. With head 90deg-about-Z relative to clean
     // (identity), the result equals the head basis itself.
-    RE4HT::Matrix4x4f head = Identity();
+    ref::Matrix4x4f head = Identity();
     head.m[0][0] = 0.f; head.m[0][1] = 1.f;
     head.m[1][0] = -1.f; head.m[1][1] = 0.f;
     float c2[3][3] = {};
-    RE4HT::ComputeCleanToHeadRotation(I, head, c2);
+    ref::ComputeCleanToHeadRotation(I, head, c2);
     Check(ApproxEq(c2[0][0], 0.f) && ApproxEq(c2[0][1], 1.f) &&
           ApproxEq(c2[1][0], -1.f) && ApproxEq(c2[1][1], 0.f) &&
           ApproxEq(c2[2][2], 1.f),
@@ -85,7 +87,7 @@ void TestComputeCleanToHeadRotation() {
 }  // namespace
 
 int main() {
-    std::cout << "RE4HeadTracking math_types tests\n";
+    std::cout << "RE4HeadTracking camera math tests\n";
     std::cout << "================================\n";
 
     TestMatrixToQuat();

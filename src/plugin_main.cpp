@@ -2,30 +2,64 @@
 
 #include <reframework/API.hpp>
 
-#include "core/mod.h"
-#include "core/logger.h"
-#include "camera/camera_hook.h"
+#include "camera/game_state_detector.h"
+#include "camera/gui_compensation.h"
+#include "core/config.h"
 
-#include <cameraunlock/input/hotkey_poller.h>
-#include <cameraunlock/input/chord_hotkeys.h>
-#include <cameraunlock/reframework/log_callback.h>
+#include <cameraunlock/reframework/gameplay_gate.h>
+#include <cameraunlock/reframework/gui_elements.h>
+#include <cameraunlock/reframework/plugin_bootstrap.h>
 
-using cameraunlock::input::NavGuarded;
-using cameraunlock::input::ChordGuarded;
+namespace ref = cameraunlock::reframework;
 
-static cameraunlock::input::HotkeyPoller g_hotkeyPoller;
+namespace {
 
-static void OnPreBeginRendering() {
-    RE4HT::OnPreBeginRendering();
-}
+// RE4 Remake's game code lives under the `chainsaw` root namespace. Namespace
+// changes and unknown controllers fall back to the hooker's TDB short-name scan
+// and parent-chain walk.
+const char* const kControllerTypeCandidates[] = {
+    "chainsaw.PlayerCameraController",
+    "chainsaw.CameraManager",
+};
 
-static void OnPostBeginRendering() {
-    RE4HT::OnPostBeginRendering();
-}
+// Assumed range to the point being aimed at, in metres.
+//
+// Fixed, not measured. The reticle marks where the clean aim lands in the
+// head-turned view, and that projection needs a range because the drawn frame
+// comes from the leaned eye: the correction is the rotation term plus a
+// parallax term of lean/range. Held constant, the parallax is exact at this
+// range and drifts with the lean either side of it, crossing zero here.
+//
+// Requiem measures the range instead, with a physics cast whose collision-layer
+// allow-list was derived from captures of that title. Doing the same here needs
+// the same captures - the layers that stop a bullet are per-game, and a wrong
+// one collapses the range onto a trigger volume the player is standing in,
+// which oversizes the correction rather than removing it. Until those captures
+// exist for this game, a constant that is right at conversational-to-room range
+// beats a measurement that can be wrong by an order of magnitude.
+constexpr float kAimDistanceMeters = 50.0f;
 
-static bool OnPreGuiDrawElement(void* element, void* context) {
-    return RE4HT::OnPreGuiDrawElement(element, context);
-}
+const ref::PluginBootstrapDescriptor kPlugin = [] {
+    ref::PluginBootstrapDescriptor d;
+    d.logTag = "RE4HT";
+    d.mod.displayName = RE4HT::RE4HT_PLUGIN_NAME;
+    d.mod.version = RE4HT::RE4HT_VERSION;
+    d.mod.config = RE4HT::kConfigSchema;
+    d.camera.controllerCandidateTypes = kControllerTypeCandidates;
+    d.camera.controllerCandidateCount =
+        static_cast<int>(std::size(kControllerTypeCandidates));
+    // The chainsaw.* types exist in the TDB before gameplay starts, so the
+    // candidate fast path hooks at init; the parent-chain walk needs a live
+    // camera rig and runs from the gameplay retry if this misses.
+    d.camera.hookControllerAtInit = true;
+    d.camera.aimDistanceMeters = kAimDistanceMeters;
+    d.camera.gate = RE4HT::GameplayGateInstance();
+    d.camera.onInit = []() { ref::InitGuiMethods(); };
+    d.preGuiDrawElement = &RE4HT::OnPreGuiDrawElement;
+    return d;
+}();
+
+} // namespace
 
 // --- REFramework plugin exports ---
 
@@ -40,58 +74,5 @@ void reframework_plugin_required_version(REFrameworkPluginVersion* version) {
 extern "C" __declspec(dllexport)
 bool reframework_plugin_initialize(const REFrameworkPluginInitializeParam* param) {
     if (!param) return false;
-
-    // Initialize REFramework SDK wrapper
-    reframework::API::initialize(param);
-
-    // Set up logging via REFramework's log functions
-    RE4HT::Logger::Instance().SetREFunctions(
-        param->functions->log_info,
-        param->functions->log_warn,
-        param->functions->log_error
-    );
-
-    // Bridge shared library logging to REFramework's log functions
-    cameraunlock::reframework::SetLogCallback([](cameraunlock::reframework::LogLevel level, const char* msg) {
-        switch (level) {
-            case cameraunlock::reframework::LogLevel::Warning:
-                RE4HT::Logger::Instance().Warning("%s", msg); break;
-            case cameraunlock::reframework::LogLevel::Error:
-                RE4HT::Logger::Instance().Error("%s", msg); break;
-            default:
-                RE4HT::Logger::Instance().Info("%s", msg); break;
-        }
-    });
-
-    RE4HT::Logger::Instance().Info("RE4 Head Tracking v%s - Plugin loaded", RE4HT::RE4HT_VERSION);
-
-    // Initialize mod (tracking pipeline, UDP receiver)
-    if (!RE4HT::Mod::Instance().Initialize()) {
-        RE4HT::Logger::Instance().Error("Mod initialization failed");
-        return false;
-    }
-
-    param->functions->on_pre_application_entry("BeginRendering", OnPreBeginRendering);
-    param->functions->on_post_application_entry("BeginRendering", OnPostBeginRendering);
-    param->functions->on_pre_gui_draw_element(OnPreGuiDrawElement);
-
-    // Set up hotkeys
-    auto& config = RE4HT::Mod::Instance().GetConfig();
-
-    // Nav-cluster bindings. Suppressed when Ctrl+Shift is held so the chord
-    // path (below) is the sole trigger for Ctrl+Shift+<nav> combos.
-    // Position-toggle mutates render-thread-owned session state, so the hotkey
-    // thread only requests it; the render frame runs it.
-    g_hotkeyPoller.SetToggleKey(config.toggleKey, NavGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
-    g_hotkeyPoller.AddHotkey(config.positionToggleKey, NavGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
-    g_hotkeyPoller.AddHotkey(config.yawModeKey, NavGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));
-
-    // Ctrl+Shift+<letter> chord bindings (CLAUDE.md T/Y/U/G/H/J cluster).
-    g_hotkeyPoller.AddHotkey('Y', ChordGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
-    g_hotkeyPoller.AddHotkey('G', ChordGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
-    g_hotkeyPoller.AddHotkey('H', ChordGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));
-    g_hotkeyPoller.Start();
-
-    RE4HT::Logger::Instance().Info("Plugin initialization complete");
-    return true;
+    return ref::InitializePlugin(param, kPlugin);
 }

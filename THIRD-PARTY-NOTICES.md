@@ -1,31 +1,407 @@
 # Third-Party Notices
 
+RE4HeadTracking bundles, statically links, or credits the third-party components
+listed below. Each remains the property of its authors and is used under its own
+licence. Where a licence requires the copyright notice, the conditions and the
+disclaimer to accompany a binary distribution, the full text is reproduced here
+verbatim, and this file ships at the root of every release ZIP we publish.
+
+Nothing in this repository is derived from, or redistributes any part of,
+Resident Evil 4.
+
+| Component | Version | Licence | How it ships |
+|-----------|---------|---------|--------------|
+| REFramework (loader) | nightly-01394-ec6c81fd39831b328027ae00e102bc9c9c3f8aa5 | MIT | Bundled verbatim in the installer ZIP |
+| REFramework (plugin API headers) | plugin API 1.15.0 | MIT | Compiled into `RE4HeadTracking.dll` |
+| cameraunlock-core | 0f7a63455ddeb91677c9268e88fd35833aa77359 | MIT | Compiled into `RE4HeadTracking.dll` |
+| OpenTrack | n/a | ISC | Not bundled; UDP protocol interoperability only |
+| OpenVR (`openvr_api.dll`) | 1.16.8 | BSD-3-Clause | Not shipped; present in this repository's git history only |
+| OpenXR Loader (`openxr_loader.dll`) | 1.0.22 | Apache-2.0 | Not shipped; present in this repository's git history only |
+
+---
+
 ## REFramework
 
-- **Version:** nightly-01394 (commit `0436e043af6f81a5d3fef49ae27d35e63431e566`)
-- **License:** MIT
-- **Upstream:** https://github.com/praydog/REFramework
-- **Usage:** Plugin host and SDK for RE Engine games. Provides method hooking, type system access, ImGui overlay, and D3D rendering hooks.
-- **Bundled:** yes. Shipped in the GitHub installer ZIP under `vendor/reframework`; install.cmd extracts it at install time.
+Two separate copies of praydog's work reach users, and both are covered by the
+same MIT licence, reproduced once below.
+
+**The loader binary.** Vendored at `vendor/reframework/`, shipped in the
+installer ZIP and used as the install-time source. Taken from the upstream
+release asset untouched; the upstream licence file ships beside it at
+`vendor/reframework/LICENSE`.
+
+- Upstream: https://github.com/praydog/REFramework
+- Upstream asset: `REFramework.zip` from the REFramework-nightly release below.
+  We commit it under the filename `RE4.zip` so the installer, the packager and
+  `launcher-manifest.json` can hardcode one name; the bytes are the upstream
+  asset unaltered. It is the universal package (`dinput8.dll` plus
+  `reframework_revision.txt`), deliberately chosen over the per-game RE4
+  package, which bundles VR runtime binaries this mod does not use.
+- Version: `nightly-01394-ec6c81fd39831b328027ae00e102bc9c9c3f8aa5`
+- Commit: `0436e043af6f81a5d3fef49ae27d35e63431e566`
+- SHA-256: `a3d24f04e41933a7a3a6e1d6402b7de18ca677245d9ca0dda9f6a5ca20e9b94e`
+
+**The plugin API headers.** Vendored at `extern/reframework/` (`API.h`,
+`API.hpp`), copied verbatim from upstream `include/reframework/` and compiled
+into `RE4HeadTracking.dll`. `API.hpp` carries inline implementations, so this is
+upstream code inside our binary, not merely a build-time interface. Both files
+were diffed against upstream `master` on 2026-08-23 and are byte-identical to
+it; we have made no modifications. Per-file commits and hashes are recorded in
+`extern/reframework/README.md`.
+
+```
+MIT License
+
+Copyright (c) 2019 praydog
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## cameraunlock-core
+
+Git submodule at `cameraunlock-core/`, compiled into `RE4HeadTracking.dll`. Our own code,
+MIT licensed, reproduced here so the notices are complete.
+
+- Pinned commit: `0f7a63455ddeb91677c9268e88fd35833aa77359`
+
+```
+MIT License
+
+Copyright (c) 2026 CameraUnlock
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ---
 
 ## OpenTrack
 
-- **Version:** N/A (UDP protocol only)
-- **License:** ISC
-- **Upstream:** https://github.com/opentrack/opentrack
-- **Usage:** Head tracking source. We receive tracking data via the OpenTrack UDP protocol on port 4242. No OpenTrack code is bundled.
-- **Bundled:** no.
+Not bundled and not linked. This mod implements the OpenTrack UDP pose datagram
+layout so that OpenTrack (https://github.com/opentrack/opentrack, ISC licence)
+and compatible trackers can drive it. No OpenTrack code, headers or binaries
+are copied, linked or redistributed, so its licence triggers no notice
+obligation here. It is credited because the wire format is its work.
 
 ---
 
-## CameraUnlock Core Library
+## Components carried in this repository's git history
 
-- **Version:** commit `8ae3c98bd426eafe40a10303e8a394ad75c8a5c2`
-- **License:** MIT
-- **Upstream:** https://github.com/itsloopyo/cameraunlock-core
-- **Usage:** Shared C++ library providing the UDP receiver, tracking processing pipeline, smoothing, interpolation, hotkey input, and math utilities. Compiled into the plugin DLL.
-- **Bundled:** no. Linked at runtime by compiling its sources into the plugin DLL.
+Neither component below is in the current tree and neither ships in any release
+ZIP. Both are named here because a `git clone` fetches the full history, and
+between commits `7a81bd4` (2026-06-01) and `a6b0ff0` (2026-06-07) the vendored
+archive `vendor/reframework/RE4.zip` was REFramework's per-game RE4 package,
+which bundles two VR runtime binaries alongside the loader. Every clone still
+carries that archive, so this repository redistributes them and owes their
+notices. Commit `a6b0ff0` switched the vendored archive to REFramework's
+universal package, which contains neither.
+
+Both binaries are third-party builds redistributed unaltered inside the
+upstream package. We did not build, modify or repackage either one.
+
+### OpenVR (`openvr_api.dll`, version 1.16.8)
+
+- Copyright holder per the binary version resource: Valve
+- Upstream: https://github.com/ValveSoftware/openvr
+- Licence: BSD-3-Clause
+
+```
+Copyright (c) 2015, Valve Corporation
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### OpenXR Loader (`openxr_loader.dll`, version 1.0.22)
+
+- Copyright per the binary version resource: Copyright (C) 2015-2020, The
+  Khronos Group Inc. and contributors
+- Upstream: https://github.com/KhronosGroup/OpenXR-SDK
+- Licence: Apache-2.0
+
+```
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
 
 ---
+
+## Resident Evil 4
+
+Resident Evil 4 and all related names, logos, characters and marks are
+trademarks of their respective owners. They are used here only to identify the
+game this mod applies to, which is nominative use and not a claim of any right
+in them. This project is an unofficial, fan-made modification. It is not
+affiliated with, endorsed by, or sponsored by the game's developers, its
+publishers, its engine vendor, or any other rights holder. It redistributes no
+game code, no game assets and no proprietary DLLs, and it requires a
+legitimately purchased copy of the game. Any engine structure offsets,
+function addresses or byte patterns referenced in the source were derived by
+the authors through independent analysis of a legitimately owned copy. They
+are factual measurements recorded as numbers; no decompiled or disassembled
+game code is stored in this repository.
+
+---
+
+## Reporting a problem with these notices
+
+If you hold rights in anything named above and believe this file misstates your
+work, or names you where it should not, open an issue at
+https://github.com/itsloopyo/resident-evil-4-headtracking/issues and it will be
+corrected or the material removed.

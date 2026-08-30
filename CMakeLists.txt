@@ -20,10 +20,7 @@ add_subdirectory(cameraunlock-core/cpp ${CMAKE_BINARY_DIR}/cameraunlock-core)
 add_library(RE4HeadTracking SHARED
     src/pch.cpp
     src/plugin_main.cpp
-    src/core/mod.cpp
-    src/core/config.cpp
-    src/core/logger.cpp
-    src/camera/camera_hook.cpp
+    src/camera/gui_compensation.cpp
     src/camera/game_state_detector.cpp
 )
 
@@ -48,7 +45,7 @@ target_include_directories(RE4HeadTracking PRIVATE
 option(RE4HT_BUILD_TESTS "Build RE4HeadTracking unit tests" OFF)
 if(RE4HT_BUILD_TESTS)
     enable_testing()
-    add_executable(re4ht_math_tests tests/math_types_tests.cpp)
+    add_executable(re4ht_math_tests tests/camera_math_tests.cpp)
     target_include_directories(re4ht_math_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/cameraunlock-core/cpp/include

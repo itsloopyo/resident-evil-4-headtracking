@@ -1,158 +1,117 @@
 #include "pch.h"
 #include "game_state_detector.h"
-#include "core/logger.h"
+
+#include <cameraunlock/reframework/gameplay_gate.h>
+#include <cameraunlock/reframework/log_callback.h>
+#include <cameraunlock/reframework/managed_utils.h>
 
 #include <reframework/API.hpp>
-#include <cameraunlock/reframework/managed_utils.h>
 
 namespace RE4HT {
 
 namespace ref = cameraunlock::reframework;
 
+// RE4 Remake (chainsaw.*) game-state signals:
+//   CharacterManager.getPlayerContextRef()      null  => main menu / loading
+//   GuiManager.get_IsPlayingEvent()             true  => cutscene
+//   GuiOpenCloseData.CurrActiveInputLevel > 0         => menu / pause / inventory
+//
+// Named outright rather than probed. The generic manager probing the RE7/RE8/
+// Requiem detectors use binds whichever candidate resolves first, which is the
+// right trade only where nothing has been confirmed; these are the bindings the
+// RE4 modding community established, and swapping them for a probe would trade
+// a known type for a guess.
+static constexpr const char* kCharacterManager = "chainsaw.CharacterManager";
+static constexpr const char* kGuiManager = "chainsaw.GuiManager";
+
 static struct {
-    bool inGameplay = false;
-    uint64_t lastCheckTime = 0;
-    static constexpr uint64_t CHECK_INTERVAL_MS = 100;
-
-    bool typesInitialized = false;
-    reframework::API::Method* getMainView = nullptr;
-    reframework::API::Method* getPrimaryCamera = nullptr;
-
-    // GuiManager-based game state detection
     reframework::API::Method* getIsPlayingEvent = nullptr;
     reframework::API::Method* getGuiOpenCloseData = nullptr;
     reframework::API::Method* getCurrActiveInputLevel = nullptr;
-    bool guiMethodsAvailable = false;
-
-    // CharacterManager - null player context = main menu / loading
     reframework::API::Method* getPlayerContextRef = nullptr;
+    bool available = false;
+} g_checks;
 
-    bool wasInGameplay = false;
-} g_state;
+static void Discover() {
+    auto tdb = reframework::API::get()->tdb();
 
-static void RefreshGameState() {
-    uint64_t now = GetTickCount64();
-    if (now - g_state.lastCheckTime < g_state.CHECK_INTERVAL_MS) return;
-    g_state.lastCheckTime = now;
+    auto guiType = tdb->find_type(kGuiManager);
+    if (guiType) {
+        g_checks.getIsPlayingEvent = guiType->find_method("get_IsPlayingEvent");
+        g_checks.getGuiOpenCloseData = guiType->find_method("get_GuiOpenCloseData");
 
-    const auto& api = reframework::API::get();
-    if (!api) {
-        g_state.inGameplay = false;
-        return;
+        auto openCloseType = tdb->find_type("chainsaw.gui.GuiOpenCloseData");
+        if (!openCloseType) openCloseType = tdb->find_type("chainsaw.GuiOpenCloseData");
+        if (openCloseType) {
+            // The engine ships the typo'd name on some builds and the corrected
+            // one on others; both refer to the same property.
+            g_checks.getCurrActiveInputLevel = openCloseType->find_method("get_CurrActiveInputevel");
+            if (!g_checks.getCurrActiveInputLevel)
+                g_checks.getCurrActiveInputLevel = openCloseType->find_method("get_CurrActiveInputLevel");
+        }
     }
 
-    if (!g_state.typesInitialized) {
-        g_state.typesInitialized = true;
-        auto tdb = api->tdb();
+    auto charType = tdb->find_type(kCharacterManager);
+    if (charType) g_checks.getPlayerContextRef = charType->find_method("getPlayerContextRef");
 
-        auto smType = tdb->find_type("via.SceneManager");
-        if (smType) g_state.getMainView = smType->find_method("get_MainView");
-        auto svType = tdb->find_type("via.SceneView");
-        if (svType) g_state.getPrimaryCamera = svType->find_method("get_PrimaryCamera");
+    g_checks.available = g_checks.getIsPlayingEvent || g_checks.getPlayerContextRef;
 
-        // GuiManager-based detection (proven in RE4 modding community)
-        auto guiType = tdb->find_type("chainsaw.GuiManager");
-        if (guiType) {
-            g_state.getIsPlayingEvent = guiType->find_method("get_IsPlayingEvent");
-            g_state.getGuiOpenCloseData = guiType->find_method("get_GuiOpenCloseData");
+    if (g_checks.available) {
+        ref::LogInfo("Game state detection: event=%p, playerCtx=%p, openClose=%p, inputLevel=%p",
+            g_checks.getIsPlayingEvent, g_checks.getPlayerContextRef,
+            g_checks.getGuiOpenCloseData, g_checks.getCurrActiveInputLevel);
+    } else {
+        ref::LogInfo("Game state detection: all lookups failed");
+    }
+}
 
-            // Find CurrActiveInputLevel method on the GuiOpenCloseData type
-            auto openCloseType = tdb->find_type("chainsaw.gui.GuiOpenCloseData");
-            if (!openCloseType) openCloseType = tdb->find_type("chainsaw.GuiOpenCloseData");
-            if (openCloseType) {
-                g_state.getCurrActiveInputLevel = openCloseType->find_method("get_CurrActiveInputevel");
-                if (!g_state.getCurrActiveInputLevel)
-                    g_state.getCurrActiveInputLevel = openCloseType->find_method("get_CurrActiveInputLevel");
+// The managed calls, guarded together. A probe that faults reports no
+// suppression rather than a state: the game is running, this detector is not,
+// and dropping tracking on the detector's own failure would be the worse of the
+// two errors.
+static const char* SuppressReason(const reframework::API* api) {
+    __try {
+        if (g_checks.getPlayerContextRef) {
+            auto charMgr = api->get_managed_singleton(kCharacterManager);
+            if (!charMgr || !ref::CallMethod(g_checks.getPlayerContextRef, charMgr)) {
+                return "no player (menu/loading)";
             }
         }
 
-        // CharacterManager for player-exists check (null = main menu / loading)
-        auto charType = tdb->find_type("chainsaw.CharacterManager");
-        if (charType) {
-            g_state.getPlayerContextRef = charType->find_method("getPlayerContextRef");
+        auto guiMgr = api->get_managed_singleton(kGuiManager);
+        if (!guiMgr) return "no GuiManager";
+
+        if (g_checks.getIsPlayingEvent && ref::CallMethodBool(g_checks.getIsPlayingEvent, guiMgr)) {
+            return "cutscene";
         }
 
-        if (g_state.getIsPlayingEvent || g_state.getPlayerContextRef) {
-            g_state.guiMethodsAvailable = true;
-            Logger::Instance().Info("Game state detection: event=%p, playerCtx=%p, openClose=%p, inputLevel=%p",
-                g_state.getIsPlayingEvent, g_state.getPlayerContextRef,
-                g_state.getGuiOpenCloseData, g_state.getCurrActiveInputLevel);
-        } else {
-            Logger::Instance().Info("Game state detection: all lookups failed");
-        }
-    }
-
-    // Determine gameplay state via tiered checks
-    bool newState = false;
-
-    do {
-        // Tier 1: Camera exists?
-        if (!g_state.getMainView || !g_state.getPrimaryCamera) break;
-
-        auto sceneManager = api->get_native_singleton("via.SceneManager");
-        if (!sceneManager) break;
-
-        auto vmCtx = api->get_vm_context();
-        auto mainView = g_state.getMainView->call<void*>(vmCtx, sceneManager);
-        if (!mainView) break;
-
-        auto camera = g_state.getPrimaryCamera->call<void*>(vmCtx, mainView);
-        if (!camera) break;
-
-        // Tier 2: GuiManager-based game state detection
-        if (g_state.guiMethodsAvailable) {
-            bool suppress = false;
-
-            __try {
-                // Null player context = main menu / loading
-                if (g_state.getPlayerContextRef) {
-                    auto charMgr = api->get_managed_singleton("chainsaw.CharacterManager");
-                    if (!charMgr || !ref::CallMethod(g_state.getPlayerContextRef, charMgr)) {
-                        suppress = true;
-                        __leave;
-                    }
-                }
-
-                auto guiMgr = api->get_managed_singleton("chainsaw.GuiManager");
-                if (!guiMgr) { suppress = true; __leave; }
-
-                if (g_state.getIsPlayingEvent && ref::CallMethodBool(g_state.getIsPlayingEvent, guiMgr)) {
-                    suppress = true;
-                    __leave;
-                }
-
-                // Non-zero input level = menu / pause / inventory
-                if (g_state.getGuiOpenCloseData && g_state.getCurrActiveInputLevel) {
-                    auto openCloseData = ref::CallMethod(g_state.getGuiOpenCloseData, guiMgr);
-                    if (openCloseData) {
-                        auto levelRet = g_state.getCurrActiveInputLevel->invoke(
-                            reinterpret_cast<reframework::API::ManagedObject*>(openCloseData), ref::EmptyArgs());
-                        if (levelRet.dword > 0) { suppress = true; __leave; }
-                    }
-                }
-            } __except(EXCEPTION_EXECUTE_HANDLER) {
-                suppress = false;
+        if (g_checks.getGuiOpenCloseData && g_checks.getCurrActiveInputLevel) {
+            auto openCloseData = ref::CallMethod(g_checks.getGuiOpenCloseData, guiMgr);
+            if (openCloseData) {
+                auto levelRet = g_checks.getCurrActiveInputLevel->invoke(
+                    reinterpret_cast<reframework::API::ManagedObject*>(openCloseData), ref::EmptyArgs());
+                if (levelRet.dword > 0) return "menu input level";
             }
-
-            if (suppress) break;
         }
-
-        newState = true;
-    } while (false);
-
-    g_state.inGameplay = newState;
-
-    if (g_state.inGameplay && !g_state.wasInGameplay) {
-        Logger::Instance().Info("Game state: entered gameplay");
-    } else if (!g_state.inGameplay && g_state.wasInGameplay) {
-        Logger::Instance().Info("Game state: left gameplay");
-    }
-    g_state.wasInGameplay = g_state.inGameplay;
+    } __except(EXCEPTION_EXECUTE_HANDLER) {}
+    return nullptr;
 }
 
-bool IsInGameplay() {
-    RefreshGameState();
-    return g_state.inGameplay;
+static bool Check(void* primaryCamera, bool diag, const char** reason) {
+    (void)primaryCamera;
+    (void)diag;
+    if (!g_checks.available) return true;
+
+    const char* suppress = SuppressReason(reframework::API::get().get());
+    if (!suppress) return true;
+    *reason = suppress;
+    return false;
 }
+
+static ref::GameplayGate g_gate{&Discover, &Check};
+
+ref::GameplayGate* GameplayGateInstance() { return &g_gate; }
+
+bool IsInGameplay() { return g_gate.IsInGameplay(); }
 
 } // namespace RE4HT
