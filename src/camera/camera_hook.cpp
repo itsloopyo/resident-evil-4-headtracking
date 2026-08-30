@@ -474,11 +474,27 @@ static bool InitCachedFunctions() {
     return true;
 }
 
+// Assumed range to the point being aimed at, in metres.
+//
+// Fixed, not measured. The reticle marks where the clean aim lands in the
+// head-turned view, and that projection needs a range because the drawn frame
+// comes from the leaned eye: the correction is the rotation term plus a
+// parallax term of lean/range. Held constant, the parallax is exact at this
+// range and drifts with the lean either side of it, crossing zero here.
+//
+// RE9 measures the range instead, with a physics cast whose collision-layer
+// allow-list was derived from captures of that title. Doing the same here needs
+// the same captures - the layers that stop a bullet are per-game, and a wrong
+// one collapses the range onto a trigger volume the player is standing in,
+// which oversizes the correction rather than removing it. Until those captures
+// exist for this game, a constant that is right at conversational-to-room range
+// beats a measurement that can be wrong by an order of magnitude.
+constexpr float kAimDist = 50.0f;
+
 // Project the clean aim point into the head-tracked view to derive the smoothed
 // reticle/marker offset (tangents + live FOV). Roll is sourced already-smoothed
 // from the processor pipeline.
 static void UpdateCrosshairProjection(const Matrix4x4f& clean, const Matrix4x4f& head) {
-    constexpr float kAimDist = 50.0f;
     float rawTanRight = 0.f, rawTanUp = 0.f;
     if (!ProjectAimToViewTangents(clean, head, kAimDist, rawTanRight, rawTanUp)) {
         g_crosshair.valid = false;
