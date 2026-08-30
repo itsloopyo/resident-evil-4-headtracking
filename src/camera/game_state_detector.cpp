@@ -90,7 +90,14 @@ static const char* SuppressReason(const reframework::API* api) {
             if (openCloseData) {
                 auto levelRet = g_checks.getCurrActiveInputLevel->invoke(
                     reinterpret_cast<reframework::API::ManagedObject*>(openCloseData), ref::EmptyArgs());
-                if (levelRet.dword > 0) return "menu input level";
+                // InvokeRet's payload is a union: on a thrown managed exception
+                // the return slot is never written, so dword carries whatever the
+                // previous call left there. Reading it unchecked reports a menu
+                // that is not open and drops tracking for as long as the throw
+                // repeats. Not routed through CallMethodBool like the checks
+                // above: this is an int32 level, and CallMethodBool reads the
+                // low byte only.
+                if (!levelRet.exception_thrown && levelRet.dword > 0) return "menu input level";
             }
         }
     } __except(EXCEPTION_EXECUTE_HANDLER) {}

@@ -15,6 +15,10 @@ be cut from the Unreleased section below.
 - Corrected the log path in the docs. It is `<game>/re2_framework_log.txt`, not `reframework/reframework_log.txt`; REFramework uses that generic name for every RE Engine title.
 
 ### Changed
+- `Page Up` / `Ctrl+Shift+G` turns positional tracking off and on again instead
+  of cycling three modes. The third mode disabled head rotation, and it sat
+  directly after the mode a `[Position] Enabled=false` config starts in, so one
+  press of a key labelled "toggle position" switched head rotation off.
 - Recentring is gone entirely: the `Home` / `Ctrl+Shift+T` hotkey, the
   `RecenterKey` ini entry, and the mod's own centre. Your tracker owns the
   centre now. Set it there, with OpenTrack's Center bind, the CENTER button in
@@ -29,9 +33,8 @@ be cut from the Unreleased section below.
 - Decoupled head tracking via OpenTrack (UDP 4242)
 - 6DOF positional tracking with configurable sensitivity and limits
 - Aim decoupling: head moves camera, mouse controls aim independently
-- ImGui reticle overlay via REFramework
 - Game state detection: tracking pauses in menus and loading screens
-- Configurable hotkeys: toggle (End), position toggle (PgUp), reticle toggle (Insert)
+- Configurable hotkeys: toggle (End), position toggle (PgUp), yaw mode (PgDn)
 - INI configuration file with sensitivity, position limits, smoothing, and hotkey settings
-- Automated installer with REFramework auto-download
+- Automated installer with vendored REFramework
 - Frame-rate independent smoothing and interpolation pipeline

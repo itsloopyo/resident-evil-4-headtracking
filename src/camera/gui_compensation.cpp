@@ -42,8 +42,14 @@ static struct {
 // centre), so we read the stack's real screen anchor and reproject it through
 // the clean-to-head rotation: the layer shift glues the anchor's world direction
 // to where it lands in the head-tracked view, correct at any screen offset, and
-// collapses to zero when the head is centred. Translation parallax is left to
-// the engine (the GUI draws with the head position already).
+// collapses to zero when the head is centred.
+//
+// Translation parallax is not corrected. The post-render callback restores the
+// clean camera in full, position row included, so the GUI draws its anchors from
+// the un-leaned eye while the frame was drawn from the leaned one, and the
+// leftover is lean/depth. Fixing it needs each icon's depth; this reads a canvas
+// position, and the write moves the whole stack at once, so no single value
+// would be right for more than one icon in it.
 static void ApplyMarkerCompensation(reframework::API::ManagedObject* guiMo) {
     const auto& gui = ref::GetGuiMethods();
     if (!gui.ready || !gui.getGlobalPosition) return;

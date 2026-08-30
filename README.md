@@ -106,11 +106,13 @@ view sits off to one side, centre it in the tracker.
 
 Two equivalent binding sets - use whichever your keyboard has:
 
-| Action | Nav-cluster | Chord |
-|--------|-------------|-------|
-| Toggle head tracking | `End` | `Ctrl+Shift+Y` |
-| Toggle positional tracking | `Page Up` | `Ctrl+Shift+G` |
+| Action                                       | Nav-cluster | Chord          |
+|----------------------------------------------|-------------|----------------|
+| Toggle head tracking                         | `End`       | `Ctrl+Shift+Y` |
+| Toggle positional tracking                   | `Page Up`   | `Ctrl+Shift+G` |
 | Toggle yaw mode (world-space / camera-local) | `Page Down` | `Ctrl+Shift+H` |
+
+`Page Up` / `Ctrl+Shift+G` turns positional (6DOF) tracking off and on. Head rotation keeps running either way.
 
 Each action fires from either its nav-cluster key or its chord - they are
 registered simultaneously, not configurable alternatives. The chord set exists
@@ -128,45 +130,55 @@ comment because the number is read off the front of the text, which is why some
 lines below still carry one. Putting every comment on its own line always works.
 
 ```ini
+; RE4 Head Tracking Configuration
+; Delete this file to reset to defaults
+
 [Network]
-UDPPort=4242                    ; Must match OpenTrack output port
+; UDP port for OpenTrack data (default: 4242)
+UDPPort=4242
 
 [Sensitivity]
-YawMultiplier=1.0               ; Horizontal rotation (0.1-5.0)
-PitchMultiplier=1.0             ; Vertical rotation (0.1-5.0)
-RollMultiplier=1.0              ; Head tilt (0.0-2.0)
+; Rotation sensitivity multipliers (1.0 = 1:1)
+YawMultiplier=1.0
+PitchMultiplier=1.0
+RollMultiplier=1.0
 
 [Smoothing]
-LocalSmoothing=0.0              ; Tracker on this machine, loopback (0.0-1.0)
-RemoteSmoothing=0.15            ; Tracker is a remote network device (0.0-1.0)
+; Smoothing applied when the tracker runs on this machine (loopback).
+; 0 = no smoothing, 1 = heavy. Covers rotation and position.
+LocalSmoothing=0.0
+; Smoothing applied when the tracker is a remote device on the network.
+; 0 = no smoothing, 1 = heavy. Covers rotation and position.
+RemoteSmoothing=0.15
 
 [Position]
-; Enable/disable 6DOF position tracking
-Enabled=true
-SensitivityX=2.0                ; Lateral sensitivity (0.0-5.0)
-SensitivityY=2.0                ; Vertical sensitivity (0.0-5.0)
-SensitivityZ=2.0                ; Depth sensitivity (0.0-5.0)
-LimitX=0.30                     ; Max lateral offset in meters
-LimitY=0.20                     ; Max vertical offset in meters
-LimitZ=0.40                     ; Max forward offset in meters
-LimitZBack=0.10                 ; Max backward offset (prevents camera clipping)
-; Invert lateral axis
+; Position tracking sensitivity (0.1-10.0, higher = more movement)
+SensitivityX=2.0
+SensitivityY=2.0
+SensitivityZ=2.0
+; Position limits in meters (how far the camera can move)
+LimitX=0.30
+LimitY=0.20
+LimitZ=0.40
+; Backward lean limit (prevents camera clipping through player model)
+LimitZBack=0.10
+; Invert position axes
 InvertX=false
-; Invert vertical axis
 InvertY=false
-; Invert depth axis
 InvertZ=false
+; Enable/disable position tracking (6DOF)
+Enabled=true
 
 [Hotkeys]
 ; Virtual key codes (hex)
-ToggleKey=0x23                  ; End - Enable/disable
-PositionToggleKey=0x21          ; Page Up - Toggle position
-YawModeKey=0x22                 ; Page Down - Toggle world/camera-local yaw
+ToggleKey=0x23           ; End - Enable/disable
+PositionToggleKey=0x21   ; Page Up - Toggle 6DOF position
+YawModeKey=0x22          ; Page Down - Toggle world/camera-local yaw
 
 [General]
 ; Auto-enable tracking on game start
 AutoEnable=true
-; true = horizon-locked; false = follows camera pitch
+; World-space yaw locks horizon (true) vs. camera-local yaw follows camera pitch (false)
 WorldSpaceYaw=true
 ```
 
