@@ -84,14 +84,12 @@ bool reframework_plugin_initialize(const REFrameworkPluginInitializeParam* param
     // thread only requests it; the render frame runs it.
     g_hotkeyPoller.SetToggleKey(config.toggleKey, NavGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
     g_hotkeyPoller.AddHotkey(config.positionToggleKey, NavGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
-    g_hotkeyPoller.AddHotkey(config.reticleToggleKey, NavGuarded([] { RE4HT::Mod::Instance().ToggleReticle(); }));
     g_hotkeyPoller.AddHotkey(config.yawModeKey, NavGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));
 
     // Ctrl+Shift+<letter> chord bindings (CLAUDE.md T/Y/U/G/H/J cluster).
     g_hotkeyPoller.AddHotkey('Y', ChordGuarded([] { RE4HT::Mod::Instance().Toggle(); }));
     g_hotkeyPoller.AddHotkey('G', ChordGuarded([] { RE4HT::Mod::Instance().RequestTogglePosition(); }));
     g_hotkeyPoller.AddHotkey('H', ChordGuarded([] { RE4HT::Mod::Instance().ToggleYawMode(); }));
-    g_hotkeyPoller.AddHotkey('U', ChordGuarded([] { RE4HT::Mod::Instance().ToggleReticle(); }));
     g_hotkeyPoller.Start();
 
     RE4HT::Logger::Instance().Info("Plugin initialization complete");

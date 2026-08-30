@@ -24,7 +24,6 @@ struct Config {
     // Hotkeys (Virtual Key codes)
     int toggleKey = DEFAULT_TOGGLE_KEY;
     int positionToggleKey = DEFAULT_POSITION_TOGGLE_KEY;
-    int reticleToggleKey = DEFAULT_RETICLE_TOGGLE_KEY;
     int yawModeKey = DEFAULT_YAW_MODE_KEY;
 
     // Position (6DOF) - RE Engine's native head-bob range is narrow, so we scale 2x to match
@@ -40,9 +39,6 @@ struct Config {
     bool positionInvertY = false;
     bool positionInvertZ = false;
     bool positionEnabled = true;
-
-    // Reticle
-    bool reticleEnabled = true;
 
     // General
     bool autoEnable = true;

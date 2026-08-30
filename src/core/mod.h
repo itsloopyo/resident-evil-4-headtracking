@@ -5,6 +5,7 @@
 #include "config.h"
 #include <cameraunlock/input/deferred_actions.h>
 #include <cameraunlock/protocol/udp_receiver.h>
+#include <cameraunlock/time/frame_clock.h>
 #include <cameraunlock/tracking/head_tracking_session.h>
 
 namespace RE4HT {
@@ -21,7 +22,6 @@ public:
     void Toggle();
 
     void TogglePosition();
-    void ToggleReticle();
     void ToggleYawMode();
 
     // Hotkey callbacks fire on the HotkeyPoller's background thread, but
@@ -71,14 +71,13 @@ private:
     cameraunlock::HeadTrackingSession<cameraunlock::UdpReceiver> m_session{m_udpReceiver};
 
     // Read on the render thread, toggled on the hotkey thread.
-    std::atomic<bool> m_reticleEnabled{true};
     std::atomic<bool> m_worldSpaceYaw{true};
 
     cameraunlock::input::DeferredAction m_togglePositionRequested;
 
     bool m_loggedFirstPose = false;
 
-    uint64_t m_lastFrameTickTime = 0;
+    cameraunlock::time::FrameClock m_frameClock;
     float m_lastDeltaTime = 0.016f;
 };
 

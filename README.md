@@ -88,7 +88,6 @@ Two equivalent binding sets - use whichever your keyboard has:
 | Toggle head tracking | `End` | `Ctrl+Shift+Y` |
 | Toggle positional tracking | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode (world-space / camera-local) | `Page Down` | `Ctrl+Shift+H` |
-| Toggle aim reticle | `Insert` | `Ctrl+Shift+U` |
 
 Each action fires from either its nav-cluster key or its chord - they are
 registered simultaneously, not configurable alternatives. The chord set exists
@@ -140,11 +139,6 @@ InvertZ=false
 ToggleKey=0x23                  ; End - Enable/disable
 PositionToggleKey=0x21          ; Page Up - Toggle position
 YawModeKey=0x22                 ; Page Down - Toggle world/camera-local yaw
-ReticleToggleKey=0x2D           ; Insert - Toggle reticle
-
-[Reticle]
-; Show the head tracking reticle overlay
-Enabled=true
 
 [General]
 ; Auto-enable tracking on game start

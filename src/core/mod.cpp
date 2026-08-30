@@ -2,7 +2,6 @@
 #include "mod.h"
 #include "logger.h"
 
-#include <cameraunlock/time/qpc_clock.h>
 
 namespace RE4HT {
 
@@ -18,9 +17,6 @@ static_assert(cameraunlock::HeadTrackingSession<cameraunlock::UdpReceiver>::kHas
 
 // Seed frame time (~60fps) used before two timestamps exist, plus the clamp band
 // that stops a stall or debugger pause from injecting a huge dt into smoothing.
-constexpr float DEFAULT_FRAME_TIME_S = 0.016f;
-constexpr float MIN_FRAME_TIME_S = 0.0001f;
-constexpr float MAX_FRAME_TIME_S = 0.1f;
 
 Mod& Mod::Instance() {
     static Mod instance;
@@ -53,7 +49,6 @@ bool Mod::Initialize() {
 
     m_session.SetMode(m_config.positionEnabled ? TrackingMode::RotationAndPosition
                                                : TrackingMode::RotationOnly);
-    m_reticleEnabled.store(m_config.reticleEnabled, std::memory_order_relaxed);
     m_worldSpaceYaw.store(m_config.worldSpaceYaw, std::memory_order_relaxed);
 
     // Assigned by name rather than through the positional constructor.
@@ -71,21 +66,18 @@ bool Mod::Initialize() {
     // the forward range and limit_z_back restricts leaning back into the player.
     posSettings.limit_z = m_config.positionLimitZ;
     posSettings.limit_z_back = m_config.positionLimitZBack;
-    // Position smoothing lives on the settings; the processor picks between the
-    // two per connection from the flag the session feeds it.
-    posSettings.local_smoothing = m_config.localSmoothing;
-    posSettings.remote_smoothing = m_config.remoteSmoothing;
     posSettings.invert_x = m_config.positionInvertX;
     posSettings.invert_y = m_config.positionInvertY;
     posSettings.invert_z = m_config.positionInvertZ;
-    m_session.GetPositionProcessor().SetSettings(posSettings);
 
-    // Rotation smoothing. The session setter also re-writes the two values into
-    // the position settings above, so it has to run after SetSettings; the
-    // values are identical either way, which keeps rotation and position from
-    // ever drifting apart.
+    // Smoothing first, then the settings. The session owns the smoothing pair
+    // for both rotation and position, and SetPositionSettings stamps the owned
+    // pair over whatever the struct carries - so the struct deliberately leaves
+    // local_smoothing / remote_smoothing at their defaults and the two can
+    // never drift apart.
     m_session.SetLocalSmoothing(m_config.localSmoothing);
     m_session.SetRemoteSmoothing(m_config.remoteSmoothing);
+    m_session.SetPositionSettings(posSettings);
 
     // The previous per-mod pipeline never engaged tracker pivot compensation
     // (it passed radians to a degrees API, zeroing the artifact). Keep that
@@ -169,12 +161,6 @@ void Mod::Toggle() {
     SetEnabled(!m_enabled.load());
 }
 
-void Mod::ToggleReticle() {
-    bool enabled = !m_reticleEnabled.load(std::memory_order_relaxed);
-    m_reticleEnabled.store(enabled, std::memory_order_relaxed);
-    Logger::Instance().Info("Reticle %s", enabled ? "enabled" : "disabled");
-}
-
 void Mod::TogglePosition() {
     bool enabled = !m_session.IsPositionActive();
     m_session.SetMode(enabled ? TrackingMode::RotationAndPosition : TrackingMode::RotationOnly);
@@ -189,17 +175,8 @@ void Mod::ProcessDeferredActions() {
 void Mod::TickFrame() {
     if (!m_initialized.load()) return;
 
-    uint64_t now = cameraunlock::time::QpcNowMicros();
-    float deltaTime = DEFAULT_FRAME_TIME_S;
-    if (m_lastFrameTickTime > 0) {
-        deltaTime = (now - m_lastFrameTickTime) / 1000000.0f;
-        if (deltaTime > MAX_FRAME_TIME_S) deltaTime = MAX_FRAME_TIME_S;
-        if (deltaTime < MIN_FRAME_TIME_S) deltaTime = MIN_FRAME_TIME_S;
-    }
-    m_lastFrameTickTime = now;
-    m_lastDeltaTime = deltaTime;
-
-    if (!m_session.Update(deltaTime)) return;
+    m_lastDeltaTime = m_frameClock.Tick();
+    m_session.Update(m_lastDeltaTime);
 }
 
 void Mod::LogFirstTrackerPose() {
