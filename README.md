@@ -1,15 +1,15 @@
+# RE4 Head Tracking
+
+![Resident Evil 4 running with this mod](https://raw.githubusercontent.com/itsloopyo/resident-evil-4-headtracking/main/assets/readme-clip.gif)
+
+An unofficial head tracking mod for Resident Evil 4 that moves the camera with your head while your mouse or controller keeps aiming, driven by OpenTrack over UDP, with no VR headset required.
+
 > [!CAUTION]
 > ## Experimental prototype - expect missing core features
 >
 > This is **not** a finished mod.
 >
 > Current builds may only test whether head tracking can drive the camera. Bug fixes and core features like decoupled look/aim, independent reticle behavior, correct shot direction, off-screen reticle support, movement handling, and comfort tuning may be missing at this early stage of development.
-
-# RE4 Head Tracking
-
-Head tracking for Resident Evil 4 Remake that moves your view with your head while your mouse or controller still controls aim, no VR headset required.
-
-<!-- ![Mod GIF](https://raw.githubusercontent.com/itsloopyo/resident-evil-4-headtracking/main/assets/readme-clip.gif) -->
 
 ## Features
 
@@ -43,41 +43,64 @@ For placing files by hand (or installing the Nexus ZIP, which contains only the 
 
 ## Setting Up OpenTrack
 
-1. Download and install [OpenTrack](https://github.com/opentrack/opentrack/releases)
-2. Configure your tracker as input
-3. Set output to **UDP over network**
-4. Host: `127.0.0.1`, Port: `4242`
-5. Start tracking before launching the game
+The mod listens for OpenTrack pose data on UDP port `4242`, on every network
+interface. One datagram is six little-endian 64-bit floats in the order
+`x, y, z, yaw, pitch, roll`: position in centimetres, rotation in degrees, 48
+bytes in total. Anything that sends that to that port drives the view.
+OpenTrack's **UDP over network** output sends exactly this, and the steps below
+set it up.
 
-### VR Headset Setup
+1. Install [OpenTrack](https://github.com/opentrack/opentrack/releases).
+2. Pick a tracker under **Input**, using the notes below.
+3. Set **Output** to **UDP over network**, host `127.0.0.1`, port `4242`.
+4. Press **Start**. Tracking and the game can start in either order.
 
-A VR headset makes an excellent high-precision tracker.
+### Webcam
 
-1. Connect your headset to the PC with Air Link (Quest) or [Virtual Desktop](https://www.vrdesktop.net/)
-2. Launch SteamVR so the headset is tracked
-3. In OpenTrack, set the input to **SteamVR**
-4. Set output to **UDP over network** (`127.0.0.1:4242`)
-5. Start tracking before launching the game
+OpenTrack ships a `neuralnet tracker` input that reads a plain webcam. Select it
+under **Input**, pick your camera in its settings, and use the output settings
+above. How well it tracks depends on your camera and your lighting, so try it
+before buying anything.
 
-### Webcam Setup
+### Phone
 
-No special hardware needed; OpenTrack's built-in **neuralnet tracker** uses any webcam for 6DOF face tracking.
+A phone app can reach the mod directly, with no OpenTrack on the PC, if it sends
+the datagram described above. Point it at this PC's IP address (run `ipconfig`
+to find it) on port `4242`. Not every phone tracker speaks this protocol, so
+check yours for an OpenTrack or UDP output option first. [Headcam](https://headcam.app)
+sends it, and I wrote it so decent tracking is free for anyone who already owns
+a phone.
 
-1. In OpenTrack, set the input to **neuralnet tracker**
-2. Select your webcam in the tracker settings
-3. Set output to **UDP over network** (`127.0.0.1:4242`)
-4. Start tracking before launching the game
-5. Centre in OpenTrack with its Center hotkey while you are looking straight at the screen. The mod applies what the tracker sends and keeps no centre of its own.
+Sending direct works when the app filters its own signal on the device. The
+mod's smoothing is sized to take the edge off a clean signal rather than to
+rescue a noisy one, so a raw feed sent direct will jitter. If it does, point the
+app at OpenTrack's **UDP over network** *input* on some other port, say 5252,
+and let OpenTrack's filters and curves clean it up before its output forwards to
+`127.0.0.1:4242`.
 
-### Phone App Setup
+Anything arriving from outside `127.0.0.0/8` counts as a remote connection and
+is smoothed with `RemoteSmoothing` rather than `LocalSmoothing`. That includes a
+tracker on this very PC that sends to the machine's own LAN address, because the
+mod reads the source address and not the machine.
 
-This mod smooths remote connections by default (`RemoteSmoothing=0.15`), so you can send directly from your phone on port 4242 without needing OpenTrack on PC.
+### Headset or other hardware
 
-1. Install an OpenTrack-compatible head tracking app
-2. Configure it to send to your PC's IP on port 4242 (run `ipconfig` to find it)
-3. Set the protocol to OpenTrack/UDP
+If your device has an OpenTrack input driver, select it under **Input** and use
+the same output settings. OpenTrack's own **Input** list is the authority on
+what it can read; the mod only ever sees what OpenTrack sends.
 
-**With OpenTrack (optional):** If you want curve mapping or visual preview, route through OpenTrack. Set OpenTrack's input to "UDP over network" on a different port (e.g. 5252), point your phone app at that port, and set OpenTrack's output to `127.0.0.1:4242`. Make sure your firewall allows incoming UDP on the input port.
+### Centring
+
+Centring belongs to your tracker. The mod subtracts no centre of its own: it
+applies the pose it receives exactly as it arrives, so a stream of zeros holds
+the view where the game itself puts it. Press the centre control in your tracker
+(OpenTrack's **Center** bind, or the CENTER button in Headcam) and the tracker
+zeroes its own output, which leaves the view centred with the mod doing nothing.
+
+That is why there is no centre hotkey here and nothing to re-centre in game. Two
+centres in series would drift apart, because each side re-centres at moments the
+other cannot see, and you would end up pressing twice to centre once. If the
+view sits off to one side, centre it in the tracker.
 
 ## Controls
 
