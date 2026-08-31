@@ -13,7 +13,7 @@ Resident Evil 4.
 |-----------|---------|---------|--------------|
 | REFramework (loader) | nightly-01394-ec6c81fd39831b328027ae00e102bc9c9c3f8aa5 | MIT | Bundled verbatim in the installer ZIP |
 | REFramework (plugin API headers) | plugin API 1.15.0 | MIT | Compiled into `RE4HeadTracking.dll` |
-| cameraunlock-core | 67a82e334bcf32979d17965eab4b0f37a48a6ad0 | MIT | Compiled into `RE4HeadTracking.dll` |
+| cameraunlock-core | fec3b4c8a6fe9c45401cf65d3d43d4f5acd22b72 | MIT | Compiled into `RE4HeadTracking.dll` |
 | OpenTrack | n/a | ISC | Not bundled; UDP protocol interoperability only |
 | OpenVR (`openvr_api.dll`) | 1.16.8 | BSD-3-Clause | Not shipped; present in this repository's git history only |
 | OpenXR Loader (`openxr_loader.dll`) | 1.0.22 | Apache-2.0 | Not shipped; present in this repository's git history only |
@@ -80,7 +80,7 @@ SOFTWARE.
 Git submodule at `cameraunlock-core/`, compiled into `RE4HeadTracking.dll`. Our own code,
 MIT licensed, reproduced here so the notices are complete.
 
-- Pinned commit: `67a82e334bcf32979d17965eab4b0f37a48a6ad0`
+- Pinned commit: `fec3b4c8a6fe9c45401cf65d3d43d4f5acd22b72`
 
 ```
 MIT License
