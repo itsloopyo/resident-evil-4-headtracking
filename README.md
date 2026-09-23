@@ -15,6 +15,7 @@ An unofficial head tracking mod for Resident Evil 4 that moves the camera with y
 
 - **Decoupled look and aim** - head tracking moves the camera; aim stays on your mouse/controller
 - **6DOF positional tracking** - lean and peek with head position
+- **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
 ## Requirements
 
@@ -23,6 +24,13 @@ An unofficial head tracking mod for Resident Evil 4 that moves the camera with y
 - Windows 10/11 (64-bit)
 
 ## Installation
+
+### Lopari
+
+Once this mod is available in Lopari, download [Lopari](https://lopari.app), choose **Resident Evil 4**, and click
+**Play with head tracking**.
+
+### Standalone Installer
 
 1. Download the installer ZIP from the [Releases page](https://github.com/itsloopyo/resident-evil-4-headtracking/releases)
 2. Extract the ZIP anywhere
