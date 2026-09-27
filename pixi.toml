@@ -26,16 +26,18 @@ setup = { cmd = """
 # Build debug configuration
 build = { cmd = "cmake --build build --config Debug", depends-on = ["setup"] }
 
-# Build and run the pure-logic unit tests (separate build dir so the plugin
-# build is untouched; uses the default generator/toolchain). Split into chained
-# tasks so a configure or build failure stops the run instead of letting ctest
-# execute a stale test binary.
-test-configure = "cmake -B build-tests -DRE4HT_BUILD_TESTS=ON"
-test-build = { cmd = "cmake --build build-tests --target re4ht_math_tests --config Debug", depends-on = ["test-configure"] }
-test = { cmd = "ctest --test-dir build-tests -C Debug --output-on-failure", depends-on = ["test-build"] }
-
 # Build release configuration
 build-release = { cmd = "cmake --build build --config Release", depends-on = ["setup"] }
+
+# The math tests, the config tests and the config differential test, in build-tests/ so build/
+# stays the plugin's alone. Needs node on PATH for core's canonical config lint.
+test = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1"
+build-tests = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -BuildOnly"
+
+# Rewrite the committed HeadTracking.ini, the canonical table's fresh render, after a change to a
+# row, a comment or a default, then the config descriptor's per_game in launcher-manifest.json
+# from it. The config tests fail until it has run.
+render-config = { cmd = "build-tests/tests/Debug/re4ht_config_tests.exe --render-config HeadTracking.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build-tests"] }
 
 # Deploy debug build to game directory
 deploy = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 Debug", depends-on = ["build"] }
@@ -51,16 +53,20 @@ uninstall = "scripts\\uninstall.cmd"
 
 # Clean build artifacts
 clean = { cmd = """
-    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; Write-Host 'Build artifacts cleaned' -ForegroundColor Green"
+    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; if (Test-Path 'build-tests') { Remove-Item 'build-tests' -Recurse -Force }; Write-Host 'Build artifacts cleaned' -ForegroundColor Green"
 """ }
 
 # Full clean including release output
 clean-all = { cmd = """
-    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; if (Test-Path 'release') { Remove-Item 'release' -Recurse -Force }; Write-Host 'All build artifacts cleaned' -ForegroundColor Green"
+    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; if (Test-Path 'build-tests') { Remove-Item 'build-tests' -Recurse -Force }; if (Test-Path 'release') { Remove-Item 'release' -Recurse -Force }; Write-Host 'All build artifacts cleaned' -ForegroundColor Green"
 """ }
 
 # Package release ZIP
-package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build-release"] }
+package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build-release", "test"] }
+
+# Core's manifest validator over the ZIPs package just built: the launcher manifest and its config
+# descriptor, and that the Nexus ZIP carries no config.
+validate-manifest = { cmd = "node cameraunlock-core/scripts/validate-manifest.mjs", depends-on = ["package"] }
 
 # Automated release workflow
 release = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/release.ps1" }

@@ -23,14 +23,12 @@ $projectRoot = Split-Path -Parent $scriptDir
 Import-Module (Join-Path $projectRoot "cameraunlock-core\powershell\DevDeploy.psm1") -Force
 Import-Module (Join-Path $projectRoot "cameraunlock-core\powershell\ModDeployment.psm1") -Force
 $buildOutput = Join-Path $projectRoot "bin\$Configuration"
-$configFile = Join-Path $projectRoot 'HeadTracking.ini'
 $vendorRefZip = Join-Path $projectRoot 'vendor\reframework\RE4.zip'
 $result = Invoke-DevDeployREFramework `
     -GameId 'resident-evil-4' `
     -GameDisplayName 'Resident Evil 4' `
     -BuildOutputPath $buildOutput `
     -ModDllName 'RE4HeadTracking.dll' `
-    -ConfigFile $configFile `
     -VendorReframeworkZip $vendorRefZip `
     -ExtraDlls @() `
     -GivenPath $GivenPath
@@ -42,7 +40,6 @@ Write-DeploymentSuccess `
         "End       - Toggle head tracking on/off",
         "Page Up   - Toggle position tracking",
         "Page Down - Toggle yaw mode (world / local)",
-        "Insert    - Toggle reticle",
         "",
-        "No nav cluster? Chords: Ctrl+Shift+ Y=Toggle G=Position H=Yaw U=Reticle"
+        "No nav cluster? Chords: Ctrl+Shift+ Y=Toggle G=Position H=Yaw"
     )

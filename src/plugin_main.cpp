@@ -6,6 +6,7 @@
 #include "camera/gui_compensation.h"
 #include "core/config.h"
 
+#include <cameraunlock/config/defaults_file.h>
 #include <cameraunlock/reframework/gameplay_gate.h>
 #include <cameraunlock/reframework/gui_elements.h>
 #include <cameraunlock/reframework/plugin_bootstrap.h>
@@ -45,6 +46,8 @@ const ref::PluginBootstrapDescriptor kPlugin = [] {
     d.mod.displayName = RE4HT::RE4HT_PLUGIN_NAME;
     d.mod.version = RE4HT::RE4HT_VERSION;
     d.mod.config = RE4HT::kConfigSchema;
+    d.mod.gameName = RE4HT::kGameName;
+    d.mod.defaults = cameraunlock::config::DefaultsFile::PerUser();
     d.camera.controllerCandidateTypes = kControllerTypeCandidates;
     d.camera.controllerCandidateCount =
         static_cast<int>(std::size(kControllerTypeCandidates));

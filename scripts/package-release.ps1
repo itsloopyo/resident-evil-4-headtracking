@@ -32,11 +32,6 @@ if (-not (Test-Path $dllPath)) {
     throw "RE4HeadTracking.dll not found at: $dllPath"
 }
 
-$iniPath = Join-Path $projectDir "HeadTracking.ini"
-if (-not (Test-Path $iniPath)) {
-    throw "HeadTracking.ini not found at: $iniPath"
-}
-
 $scriptsDir = Join-Path $projectDir "scripts"
 foreach ($script in @("install.cmd", "uninstall.cmd")) {
     $scriptPath = Join-Path $scriptsDir $script
@@ -64,9 +59,6 @@ New-Item -ItemType Directory -Path $pluginsDir -Force | Out-Null
 Copy-Item $dllPath -Destination $pluginsDir -Force
 Write-Host "  plugins/RE4HeadTracking.dll" -ForegroundColor Green
 
-Copy-Item $iniPath -Destination $pluginsDir -Force
-Write-Host "  plugins/HeadTracking.ini" -ForegroundColor Green
-
 # Stage the vendored REFramework so install.cmd can extract it offline.
 # Vendor tree is the install-time source of truth; the build/package
 # pipeline never refreshes it - bump via `pixi run update-deps`.
@@ -89,7 +81,8 @@ foreach ($vendorFile in @("RE4.zip", "LICENSE", "README.md")) {
 # launcher-manifest.json is the contract lopari reads at the ZIP root. Stamp
 # the real release version into the staged copy so the shipped manifest can
 # never drift from the build. (Not staged into the Nexus ZIP - Nexus users do
-# not use the launcher.)
+# not use the launcher.) No config is shipped in either ZIP: the mod creates
+# CameraUnlock.ini at first launch.
 $manifest.mod_info.version = $version
 $stagedManifestPath = Join-Path $ghStagingDir "launcher-manifest.json"
 $manifestJson = $manifest | ConvertTo-Json -Depth 10
@@ -141,9 +134,6 @@ New-Item -ItemType Directory -Path $nexusPluginsDir -Force | Out-Null
 
 Copy-Item $dllPath -Destination $nexusPluginsDir -Force
 Write-Host "  reframework/plugins/RE4HeadTracking.dll" -ForegroundColor Green
-
-Copy-Item $iniPath -Destination $nexusPluginsDir -Force
-Write-Host "  reframework/plugins/HeadTracking.ini" -ForegroundColor Green
 
 $nexusZipName = "RE4HeadTracking-v$version-nexus.zip"
 $nexusZipPath = Join-Path $releaseDir $nexusZipName

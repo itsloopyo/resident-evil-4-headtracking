@@ -13,3 +13,11 @@
 *.jpg binary
 *.gif binary
 *.zip binary
+
+# The committed canonical config is the table's fresh render byte for byte, CRLF included.
+HeadTracking.ini -text
+
+# The config differential test's inputs are the published files byte for byte, CRLF included,
+# and its oracle is the published build's sources byte for byte.
+tests/config_differential/inputs/** -text
+tests/config_differential/oracle/** -text
