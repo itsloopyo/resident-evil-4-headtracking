@@ -4,13 +4,6 @@
 
 An unofficial head tracking mod for Resident Evil 4 that moves the camera with your head while your mouse or controller keeps aiming, driven by OpenTrack over UDP, with no VR headset required.
 
-> [!CAUTION]
-> ## Experimental prototype - expect missing core features
->
-> This is **not** a finished mod.
->
-> Current builds may only test whether head tracking can drive the camera. Bug fixes and core features like decoupled look/aim, independent reticle behavior, correct shot direction, off-screen reticle support, movement handling, and comfort tuning may be missing at this early stage of development.
-
 ## Features
 
 - **Decoupled look and aim** - head tracking moves the camera; aim stays on your mouse/controller
@@ -27,7 +20,7 @@ An unofficial head tracking mod for Resident Evil 4 that moves the camera with y
 
 ### Lopari
 
-Once this mod is available in Lopari, download [Lopari](https://lopari.app), choose **Resident Evil 4**, and click
+Download [Lopari](https://lopari.app), choose **Resident Evil 4**, and click
 **Play with head tracking**.
 
 ### Standalone Installer
