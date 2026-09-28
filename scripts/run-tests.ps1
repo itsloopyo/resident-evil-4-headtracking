@@ -8,7 +8,8 @@
 param(
     [string]$Config = 'Debug',
     # Build the test binaries and stop, for pixi run render-config.
-    [switch]$BuildOnly
+    [switch]$BuildOnly,
+    [ValidateSet('all', 'unit', 'differential')][string]$Suite = 'all'
 )
 
 Set-StrictMode -Version Latest
@@ -24,7 +25,8 @@ cmake --build $BuildDir --config $Config --target re4ht_tests
 if ($LASTEXITCODE -ne 0) { throw "Test build failed ($LASTEXITCODE)" }
 if ($BuildOnly) { return }
 
-ctest --test-dir $BuildDir -C $Config --output-on-failure -R '^re4ht_'
+$labels = @{ all = @(); unit = @('-LE', 'differential'); differential = @('--no-tests=error', '-L', 'differential') }[$Suite]
+ctest --test-dir $BuildDir -C $Config --output-on-failure -R '^re4ht_' @labels
 if ($LASTEXITCODE -ne 0) { throw "Tests failed ($LASTEXITCODE)" }
 
 Write-Host 'All tests passed' -ForegroundColor Green

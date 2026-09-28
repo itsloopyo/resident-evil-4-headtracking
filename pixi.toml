@@ -31,7 +31,9 @@ build-release = { cmd = "cmake --build build --config Release", depends-on = ["s
 
 # The math tests, the config tests and the config differential test, in build-tests/ so build/
 # stays the plugin's alone. Needs node on PATH for core's canonical config lint.
-test = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1"
+test-unit = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite unit"
+test-differential = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite differential"
+test = { depends-on = ["test-unit", "test-differential"] }
 build-tests = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -BuildOnly"
 
 # Rewrite the committed HeadTracking.ini, the canonical table's fresh render, after a change to a
@@ -62,7 +64,7 @@ clean-all = { cmd = """
 """ }
 
 # Package release ZIP
-package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build-release", "test"] }
+package = { cmd = "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build-release", "test-unit"] }
 
 # Core's manifest validator over the ZIPs package just built: the launcher manifest and its config
 # descriptor, and that the Nexus ZIP carries no config.

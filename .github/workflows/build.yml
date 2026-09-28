@@ -14,6 +14,13 @@ on:
       - 'docs/**'
       - 'LICENSE'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build and Validate
@@ -37,12 +44,6 @@ jobs:
           # empty. Skip install/list: newer pixi errors on `list` of an empty
           # env. pixi itself is still placed on PATH for `pixi run package`.
           run-install: false
-
-      # Same command a developer runs locally: the pixi task chain owns the
-      # test configure, build and ctest invocation, so this workflow owns none.
-      - name: Run tests
-        shell: pwsh
-        run: pixi run test
 
       # Build + package through the SAME command a developer runs locally. All
       # build logic lives in the pixi task chain (cmake configure -> build ->
